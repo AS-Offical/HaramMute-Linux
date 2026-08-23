@@ -1,6 +1,10 @@
 MIT License
 
-Copyright (c) 2024-2026 Kyler
+Copyright (c) 2024-2026 AbdullahSalem
+
+This project is a voluntary port of the HaramMute application to Linux.
+It is not officially affiliated with the HaramMute team and is distributed as a
+community-driven effort for local vocal removal on Linux systems.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
