@@ -89,3 +89,4 @@ Output validated with ffprobe (19.1 s, VBR stereo).
 - Telemetry ships disabled; the PostHog key remains only inside the optional module.
 - The bundled ONNX model lives in `assets/model_cache/audio-separator/` and is
   seeded into the data dir on first run (no downloads).
+# HaramMute-Linux
