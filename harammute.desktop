@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=HaramMute
+Comment=Local vocal separation server for the HaramMute extension
+Exec=/home/kyler/harammute-linux/harammute
+Icon=/home/kyler/harammute-linux/icon.png
+Terminal=false
+Categories=AudioVideo;Audio;
+StartupNotify=false

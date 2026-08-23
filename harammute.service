@@ -1,0 +1,12 @@
+[Unit]
+Description=HaramMute local music-removal server
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/harammute-linux/harammute
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

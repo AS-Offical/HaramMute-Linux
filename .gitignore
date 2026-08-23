@@ -1,0 +1,29 @@
+# Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Logs
+*.log
+*.log.*
+
+# Data directories (user-specific)
+server_data/
+venv/
+.env
+.venv
+
+# OS generated files
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Binary model (handled separately via install script)
+assets/model_cache/audio-separator/UVR-MDX-NET-Voc_FT.onnx
+
+# Tray launcher state
+.tray_launcher_state.json

@@ -1,0 +1,23 @@
+# Pinned to versions verified working together (incl. pre-AVX2 CPUs like IvyBridge).
+fastapi>=0.110,<1
+uvicorn[standard]>=0.29
+pydantic>=2.6
+pydantic-settings>=2.2
+email-validator>=2.1
+
+yt-dlp>=2026.6.9
+
+# audio-separator 0.41 + torch 2.4.1 + onnxruntime 1.23 = combo proven on CPU.
+# Newer torch/onnxruntime require AVX2 and SIGILL-crash on older CPUs.
+audioread>=3
+soundfile>=0.12
+soxr>=0.1
+librosa<0.11
+audio-separator[cpu]==0.41.0
+onnxruntime==1.23.0
+# Install torch separately BEFORE this file:
+#   pip install torch==2.4.1 torchvision==0.19.1 --index-url https://download.pytorch.org/whl/cpu
+# (uncomment below if your CPU supports AVX2):
+# torch==2.4.1
+
+pillow>=10
