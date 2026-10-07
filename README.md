@@ -1,5 +1,7 @@
 # HaramMute-Linux
-
+<p align="center">
+  <img src="assets/cover.png" alt="HaramMute Linux">
+</p>
 ## العربية
 
 ### نبذة عن المشروع
