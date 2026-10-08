@@ -24,7 +24,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            ca-certificates curl ffmpeg gir1.2-gtk-3.0 \
+            ca-certificates curl ffmpeg gir1.2-gtk-3.0 unzip \
             gir1.2-ayatanaappindicator3-0.1 libfuse2 python3-gi xdg-utils
       - name: Prepare Python runtime and build Debian/AppImage
         run: |
@@ -38,7 +38,7 @@ jobs:
           APPIMAGETOOL="$RUNNER_TEMP/appimagetool.AppImage" \
           LINUXDEPLOY="$RUNNER_TEMP/linuxdeploy.AppImage" \
           APPIMAGE_EXTRACT_AND_RUN=1 \
-            ./packaging/build-linux-packages.sh "$RUNNER_TEMP/packages"
+            bash ./packaging/build-linux-packages.sh "$RUNNER_TEMP/packages"
       - name: Smoke-test installed Debian package and extracted AppImage server
         run: |
           set -euo pipefail
@@ -85,13 +85,13 @@ jobs:
         include:
           - distro: Arch
             image: archlinux:latest
-            system_deps: pacman -Syu --noconfirm --needed base-devel ca-certificates curl ffmpeg gtk3 libayatana-appindicator python-gobject xdg-utils
+            system_deps: pacman -Syu --noconfirm --needed base-devel ca-certificates curl ffmpeg gtk3 libayatana-appindicator python-gobject unzip xdg-utils
           - distro: Fedora
             image: fedora:latest
-            system_deps: dnf install -y gcc gcc-c++ make rpm-build bash ca-certificates curl ffmpeg-free gtk3 libayatana-appindicator-gtk3 python3-gobject xdg-utils
+            system_deps: dnf install -y gcc gcc-c++ make rpm-build bash ca-certificates curl ffmpeg-free gtk3 libayatana-appindicator-gtk3 python3-gobject unzip xdg-utils
           - distro: openSUSE
             image: opensuse/tumbleweed:latest
-            system_deps: zypper --non-interactive refresh && zypper --non-interactive install gcc gcc-c++ make rpm-build bash ca-certificates curl ffmpeg gtk3 typelib-1_0-AppIndicator3-0_1 typelib-1_0-Gtk-3_0 python3-gobject xdg-utils
+            system_deps: zypper --non-interactive refresh && zypper --non-interactive install gcc gcc-c++ make rpm-build bash ca-certificates curl ffmpeg gtk3 typelib-1_0-AppIndicator3-0_1 typelib-1_0-Gtk-3_0 python3-gobject unzip xdg-utils
     steps:
       - uses: actions/checkout@v4
         with:
@@ -123,15 +123,18 @@ jobs:
               }
               eval "$SYSTEM_DEPS"
               useradd --create-home builder
-              chown -R builder:builder /src
-              su - builder -c "cd /src && env HARAMMUTE_SKIP_SYSTEM_DEPS=1 ./install.sh --managed-python --acceleration cpu && ./packaging/build-native-packages.sh /src/dist"
+              cp -a /src /home/builder/HaramMute-Linux
+              chown -R builder:builder /home/builder/HaramMute-Linux
+              su - builder -c "cd /home/builder/HaramMute-Linux && env HARAMMUTE_SKIP_SYSTEM_DEPS=1 ./install.sh --managed-python --acceleration cpu && ./packaging/build-native-packages.sh /home/builder/HaramMute-Linux/dist"
               case "$(. /etc/os-release; echo "$ID")" in
-                arch) pacman -U --noconfirm /src/dist/*.pkg.tar.zst ;;
-                fedora) dnf install -y /src/dist/*.rpm ;;
-                opensuse*) zypper --non-interactive install /src/dist/*.rpm ;;
+                arch) pacman -U --noconfirm /home/builder/HaramMute-Linux/dist/*.pkg.tar.zst ;;
+                fedora) dnf install -y /home/builder/HaramMute-Linux/dist/*.rpm ;;
+                opensuse*) zypper --non-interactive install /home/builder/HaramMute-Linux/dist/*.rpm ;;
                 *) echo "Unexpected build distro: $ID" >&2; exit 1 ;;
               esac
               server_smoke
+              mkdir -p /src/dist
+              cp -a /home/builder/HaramMute-Linux/dist/. /src/dist/
               chmod -R a+rX /src/dist
             '
       - uses: actions/upload-artifact@v4
