@@ -22,21 +22,39 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import Callable, Optional
 
+from .config import settings
+from .limits import MAX_VIDEO_SECONDS
+
 logger = logging.getLogger("app.local_processing")
+_download_start_lock = threading.Lock()
+_last_download_started = 0.0
 
 DEFAULT_MODEL_NAME = os.environ.get("MUSIC_REMOVER_MODEL_NAME", "UVR-MDX-NET-Voc_FT.onnx")
 
 # Linux browser cookie-store locations used for yt-dlp --cookies-from-browser.
 _BROWSER_COOKIE_GLOBS = {
-    "chrome": "~/.config/google-chrome/*/Cookies",
-    "chromium": "~/.config/chromium/*/Cookies",
-    "brave": "~/.config/BraveSoftware/Brave-Browser/*/Cookies",
-    "edge": "~/.config/microsoft-edge/*/Cookies",
-    "firefox": "~/.mozilla/firefox/*/cookies.sqlite",
+    "chrome": (
+        "~/.config/google-chrome/*/Cookies",
+        "~/.var/app/com.google.Chrome/config/google-chrome/*/Cookies",
+    ),
+    "chromium": (
+        "~/.config/chromium/*/Cookies",
+        "~/.var/app/org.chromium.Chromium/config/chromium/*/Cookies",
+    ),
+    "brave": (
+        "~/.config/BraveSoftware/Brave-Browser/*/Cookies",
+        "~/.var/app/com.brave.Browser/config/BraveSoftware/Brave-Browser/*/Cookies",
+    ),
+    "edge": ("~/.config/microsoft-edge/*/Cookies",),
+    "firefox": (
+        "~/.mozilla/firefox/*/cookies.sqlite",
+        "~/.var/app/org.mozilla.firefox/.mozilla/firefox/*/cookies.sqlite",
+    ),
 }
 
 
@@ -49,7 +67,8 @@ def bundled_model_cache_dir() -> Path:
 
 
 def ffmpeg_binary() -> str:
-    return os.environ.get("MUSIC_REMOVER_FFMPEG_BINARY") or shutil.which("ffmpeg") or "ffmpeg"
+    configured = os.environ.get("MUSIC_REMOVER_FFMPEG_BINARY") or settings.ffmpeg_binary
+    return shutil.which(configured) or configured
 
 
 def ffprobe_binary() -> Optional[str]:
@@ -68,22 +87,28 @@ def _import_onnxruntime():
         return None
 
 
-def _cuda_available() -> bool:
+def available_onnx_providers() -> list[str]:
     ort = _import_onnxruntime()
     if ort is None:
-        return False
+        return []
     try:
-        return "CUDAExecutionProvider" in ort.get_available_providers()
+        return list(ort.get_available_providers())
     except Exception:
-        return False
+        return []
 
 
 def resolve_device(force_cpu: bool = False) -> tuple[str, list[str]]:
     """Return ``(device_label, onnx_providers)`` for this machine."""
     if force_cpu:
         return "cpu", ["CPUExecutionProvider"]
-    if _cuda_available():
-        return "cuda", ["CUDAExecutionProvider", "CPUExecutionProvider"]
+    available = set(available_onnx_providers())
+    for provider, label in (
+        ("CUDAExecutionProvider", "nvidia-cuda"),
+        ("OpenVINOExecutionProvider", "intel-openvino"),
+        ("MIGraphXExecutionProvider", "amd-migraphx"),
+    ):
+        if provider in available:
+            return label, [provider, "CPUExecutionProvider"]
     return "cpu", ["CPUExecutionProvider"]
 
 
@@ -117,15 +142,16 @@ def detect_cookie_browsers() -> list[str]:
     import glob
 
     found = []
-    for browser, pattern in _BROWSER_COOKIE_GLOBS.items():
-        try:
-            matches = glob.glob(os.path.expanduser(pattern))
-        except OSError:
-            matches = []
-        if matches and shutil.which(browser):
-            found.append(browser)
-        elif matches and browser == "firefox":
-            # firefox binary may be named differently but store exists
+    for browser, patterns in _BROWSER_COOKIE_GLOBS.items():
+        matches = []
+        for pattern in patterns:
+            try:
+                matches.extend(glob.glob(os.path.expanduser(pattern)))
+            except OSError:
+                continue
+        if matches:
+            # yt-dlp reads the browser database directly; the browser binary
+            # itself does not need to be present on PATH.
             found.append(browser)
     logger.info("Available browsers for cookies: %s", found or "none")
     return found
@@ -136,9 +162,12 @@ def detect_cookie_browsers() -> list[str]:
 # ---------------------------------------------------------------------------
 
 def _ytdlp_base_args() -> list[str]:
-    args = [sys.executable, "-u", "-m", "yt_dlp", "--no-warnings"]
-    if shutil.which("deno"):
-        args += ["--js-runtimes", "deno", "--remote-components", "ejs:github"]
+    executable = shutil.which(settings.yt_dlp_binary)
+    args = [executable] if executable else [sys.executable, "-u", "-m", "yt_dlp"]
+    deno = shutil.which(settings.deno_binary)
+    if deno:
+        args += ["--js-runtimes", f"deno:{deno}", "--remote-components", "ejs:github"]
+    args += ["--no-warnings"]
     return args
 
 
@@ -176,6 +205,7 @@ def download_audio(
     Returns the path of ``work_dir/source.<ext>``.
     """
     work_dir.mkdir(parents=True, exist_ok=True)
+    _clear_partial_downloads(work_dir)
     output_template = str(work_dir / "source.%(ext)s")
     format_selector = "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best"
     common = [
@@ -189,26 +219,45 @@ def download_audio(
         "-N", "4",
     ]
 
-    attempts: list[Optional[str]] = detect_cookie_browsers() + [None]
+    if settings.cookies_file or settings.skip_browser_cookies:
+        attempts: list[Optional[str]] = [None]
+    elif settings.browser_for_cookies:
+        attempts = [settings.browser_for_cookies, None]
+    else:
+        attempts = detect_cookie_browsers() + [None]
+    global _last_download_started
     last_error: Optional[str] = None
 
     for index, browser in enumerate(attempts):
-        if delay_between_attempts and index > 0:
-            time.sleep(delay_between_attempts)
-
+        if index:
+            _clear_partial_downloads(work_dir)
         label = f"{browser} cookies" if browser else "without cookies"
         if browser is None and attempts[:-1]:
             logger.warning("Trying download without cookies...")
         else:
             logger.info("Trying download with %s...", label)
 
-        fetch_metadata(url, browser)
+        metadata = fetch_metadata(url, browser)
+        duration = metadata.get("duration") if metadata else None
+        if isinstance(duration, (int, float)) and duration > MAX_VIDEO_SECONDS:
+            raise ValueError(
+                f"Media is longer than the 90-minute processing limit ({duration / 60:.1f} minutes)"
+            )
 
         command = _ytdlp_base_args() + common
         if browser:
             command += ["--cookies-from-browser", browser]
+        elif settings.cookies_file:
+            command += ["--cookies", str(settings.cookies_file)]
         command.append(url)
         logger.debug("Command: %s", " ".join(command))
+
+        with _download_start_lock:
+            minimum_delay = max(delay_between_attempts, settings.download_delay)
+            wait_for = minimum_delay - (time.monotonic() - _last_download_started)
+            if _last_download_started and wait_for > 0:
+                time.sleep(wait_for)
+            _last_download_started = time.monotonic()
 
         process = subprocess.Popen(
             command,
@@ -252,15 +301,23 @@ def _find_downloaded(work_dir: Path) -> Optional[Path]:
     return candidates[0] if candidates else None
 
 
+def _clear_partial_downloads(work_dir: Path) -> None:
+    """Remove incomplete/stale yt-dlp outputs before another attempt."""
+    for path in work_dir.glob("source.*"):
+        if path.is_file():
+            try:
+                path.unlink()
+            except OSError as exc:
+                logger.debug("Could not remove partial download %s: %s", path, exc)
+
+
 # ---------------------------------------------------------------------------
 # Audio conversion / probing / splitting
 # ---------------------------------------------------------------------------
 
 def convert_to_wav(source: Path, work_dir: Path) -> Path:
-    """Convert downloaded audio to WAV for compatibility with the separator."""
-    if source.suffix.lower() == ".wav":
-        return source
-    target = work_dir / "source.wav"
+    """Normalize all inputs to the separator's expected stereo 44.1kHz WAV."""
+    target = work_dir / "normalized-source.wav"
     command = [
         ffmpeg_binary(), "-y", "-hide_banner", "-loglevel", "error",
         "-i", str(source),
@@ -388,6 +445,7 @@ def separate_vocals(
     )
 
     last_error: Optional[Exception] = None
+    model_repaired = False
     for attempt in range(1, max_attempts + 1):
         started = time.monotonic()
         try:
@@ -396,6 +454,9 @@ def separate_vocals(
                 output_dir=str(output_dir),
                 output_format="WAV",
             )
+            # audio-separator 0.41.0 consumes this value when constructing
+            # its ONNX session; its default Linux selection only chooses CUDA.
+            separator.onnx_execution_provider = providers
             logger.info(
                 "Separating audio with UVR (audio-separator): %s [device=%s, model=%s, "
                 "model_cache=%s, runtime=%s, attempt=%d/%d]",
@@ -407,11 +468,44 @@ def separate_vocals(
             vocals = _pick_vocals_output(output_files, output_dir)
             if vocals is None or not vocals.exists():
                 raise RuntimeError(f"No vocals stem produced (outputs={output_files})")
+            for output_name in output_files:
+                output_path = Path(output_name)
+                if not output_path.is_absolute():
+                    output_path = output_dir / output_path.name
+                if output_path != vocals and output_path.exists():
+                    try:
+                        output_path.unlink()
+                    except OSError as cleanup_error:
+                        logger.debug("Could not remove unused stem %s: %s", output_path, cleanup_error)
             elapsed = time.monotonic() - started
-            return {"vocals": vocals.resolve(), "seconds": round(elapsed, 2)}
+            return {
+                "vocals": vocals.resolve(),
+                "seconds": round(elapsed, 2),
+                "device": device,
+                "providers": list(providers),
+            }
         except Exception as exc:  # noqa: BLE001 - retry any runtime failure
             last_error = exc
             logger.warning("Separation attempt %d/%d failed: %s", attempt, max_attempts, exc)
+            error_text = str(exc).lower()
+            model_path = model_cache_dir / DEFAULT_MODEL_NAME
+            looks_corrupt = any(
+                phrase in error_text
+                for phrase in ("protobuf parsing failed", "invalid protobuf", "corrupt model")
+            )
+            if looks_corrupt and not model_repaired and model_path.is_file():
+                logger.warning("The cached ONNX model appears corrupt; removing it for a clean retry")
+                try:
+                    model_path.unlink()
+                    model_repaired = True
+                except OSError as cleanup_error:
+                    logger.warning("Could not remove corrupt model cache %s: %s", model_path, cleanup_error)
+            if device != "cpu":
+                logger.warning("Hardware ONNX provider failed; retrying with CPU fallback")
+                device, providers = "cpu", ["CPUExecutionProvider"]
+                runtime_label = (
+                    f"onnxruntime={onnxruntime.__version__};providers={','.join(providers)}"
+                )
             time.sleep(min(2 ** attempt, 8))
     raise RuntimeError(f"Vocal separation failed after {max_attempts} attempts: {last_error}")
 
@@ -431,4 +525,38 @@ def transcode_to_mp3(source: Path, target: Path, quality: int = 4) -> Path:
         str(target),
     ]
     subprocess.run(command, check=True, capture_output=True)
+    return target
+
+
+def concatenate_wav_chunks_to_mp3(
+    chunks: list[Path], target: Path, quality: int = 4
+) -> Path:
+    """Join sequential PCM vocal chunks and encode one continuous MP3."""
+    if not chunks:
+        raise ValueError("Cannot assemble vocals without completed chunks")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    concat_list = target.parent / f".{target.stem}-concat.txt"
+
+    def quote_concat_path(path: Path) -> str:
+        escaped = str(path.resolve()).replace("'", "'\\''")
+        return f"file '{escaped}'"
+
+    try:
+        concat_list.write_text(
+            "\n".join(quote_concat_path(path) for path in chunks) + "\n",
+            encoding="utf-8",
+        )
+        command = [
+            ffmpeg_binary(), "-y", "-hide_banner", "-loglevel", "error",
+            "-f", "concat", "-safe", "0", "-i", str(concat_list),
+            "-af", "loudnorm=I=-16:LRA=11:TP=-1.5",
+            "-c:a", "libmp3lame", "-q:a", str(quality),
+            str(target),
+        ]
+        subprocess.run(command, check=True, capture_output=True)
+    finally:
+        try:
+            concat_list.unlink(missing_ok=True)
+        except OSError as exc:
+            logger.warning("Could not remove temporary concat list %s: %s", concat_list, exc)
     return target

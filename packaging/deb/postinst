@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+ln -sfn /opt/harammute-linux/harammute /usr/bin/harammute
+ln -sfn /opt/harammute-linux/harammute-open /usr/bin/harammute-open
+ln -sfn /opt/harammute-linux/tray_launcher.py /usr/bin/harammute-tray
+install -D -m 0644 /opt/harammute-linux/icon.png /usr/share/icons/hicolor/256x256/apps/harammute.png
+install -D -m 0644 /opt/harammute-linux/packaging/deb/harammute.desktop /usr/share/applications/harammute.desktop
+install -D -m 0644 /opt/harammute-linux/packaging/deb/harammute.service /usr/lib/systemd/user/harammute.service
+if command -v systemctl >/dev/null 2>&1; then systemctl daemon-reload || true; fi
+exit 0

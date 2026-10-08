@@ -1,0 +1,103 @@
+name: Linux package checks
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-checks:
+    name: Source and integration metadata
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install validators
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y desktop-file-utils shellcheck systemd rpm
+      - name: Validate source and package metadata
+        run: |
+          set -euo pipefail
+          bash -n install.sh harammute harammute-open harammute-server \
+            packaging/build-linux-packages.sh packaging/build-native-packages.sh \
+            packaging/arch/harammute packaging/arch/harammute-tray
+          shellcheck install.sh harammute harammute-open harammute-server \
+            packaging/build-linux-packages.sh packaging/build-native-packages.sh \
+            packaging/arch/harammute packaging/arch/harammute-tray
+          python -m compileall -q app tray_launcher.py
+          desktop-file-validate harammute.desktop packaging/deb/harammute.desktop \
+            packaging/arch/harammute.desktop packaging/appimage/harammute.desktop
+          systemd-analyze verify harammute.service packaging/deb/harammute.service \
+            packaging/arch/harammute.service
+          rpmspec -P packaging/rpm/harammute-linux.spec >/dev/null
+          grep -q '^Architecture: amd64$' packaging/deb/control
+          grep -q "^arch=('x86_64')$" packaging/arch/PKGBUILD
+          mkdir -p "$RUNNER_TEMP/deb-check/DEBIAN"
+          cp packaging/deb/control packaging/deb/postinst packaging/deb/prerm \
+            "$RUNNER_TEMP/deb-check/DEBIAN/"
+          chmod 0755 "$RUNNER_TEMP/deb-check/DEBIAN/postinst" \
+            "$RUNNER_TEMP/deb-check/DEBIAN/prerm"
+          dpkg-deb --root-owner-group --build "$RUNNER_TEMP/deb-check" \
+            "$RUNNER_TEMP/harammute-metadata-check.deb"
+
+  distro-dependency-checks:
+    name: Installer prerequisites (${{ matrix.distro }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: Debian
+            image: debian:stable-slim
+            setup: apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends bash ca-certificates curl ffmpeg python3 python3-gi gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1 xdg-utils
+          - distro: Fedora
+            image: fedora:latest
+            setup: dnf install -y bash ca-certificates curl ffmpeg-free python3-gobject gtk3 libayatana-appindicator-gtk3 xdg-utils
+          - distro: Arch
+            image: archlinux:latest
+            setup: pacman -Syu --noconfirm bash ca-certificates curl ffmpeg python-gobject gtk3 libayatana-appindicator xdg-utils
+          - distro: openSUSE
+            image: opensuse/tumbleweed:latest
+            setup: zypper --non-interactive refresh && zypper --non-interactive install bash ca-certificates curl ffmpeg python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-AppIndicator3-0_1 xdg-utils
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install distro prerequisites and verify runtime bindings
+        env:
+          IMAGE: ${{ matrix.image }}
+          SETUP: ${{ matrix.setup }}
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "$PWD:/src:ro" \
+            -e SETUP="$SETUP" \
+            "$IMAGE" sh -ec '
+              eval "$SETUP"
+              command -v ffmpeg
+              command -v ffprobe
+              command -v curl
+              python3 -c '\''
+          import gi
+          gi.require_version("Gtk", "3.0")
+          from gi.repository import Gtk
+          for namespace in ("AyatanaAppIndicator3", "AppIndicator3"):
+              try:
+                  gi.require_version(namespace, "0.1")
+                  repository = __import__("gi.repository", fromlist=[namespace])
+                  getattr(repository, namespace)
+                  break
+              except (ImportError, ValueError):
+                  continue
+          else:
+              raise SystemExit("No usable AppIndicator typelib")
+          print("GTK and AppIndicator bindings load")
+          '\''
+              bash -n /src/install.sh /src/harammute-open
+            '

@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+URL="http://127.0.0.1:8765"
+OPEN_PAGE=1
+if [[ "${1:-}" == "--background" ]]; then
+    OPEN_PAGE=0
+fi
+APP_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+APP_DIR="$(cd "$(dirname "$APP_PATH")" && pwd)"
+if [[ ! -f "$APP_DIR/tray_launcher.py" && -f /opt/harammute-linux/tray_launcher.py ]]; then
+    APP_DIR=/opt/harammute-linux
+fi
+
+if ! command -v systemctl >/dev/null 2>&1 || ! systemctl --user start harammute.service; then
+    DATA_DIR="${HARAMMUTE_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/HaramMute}"
+    mkdir -p "$DATA_DIR/logs"
+    nohup "$APP_DIR/tray_launcher.py" >>"$DATA_DIR/logs/tray.log" 2>&1 </dev/null &
+fi
+
+for _ in {1..60}; do
+    if curl --silent --show-error --fail --max-time 1 "$URL/health" >/dev/null 2>&1; then
+        if ((OPEN_PAGE)); then
+            exec xdg-open "$URL"
+        fi
+        exit 0
+    fi
+    sleep 0.5
+done
+
+command -v notify-send >/dev/null 2>&1 && notify-send "HaramMute" "The local service did not become ready. Check the HaramMute log files."
+exit 1

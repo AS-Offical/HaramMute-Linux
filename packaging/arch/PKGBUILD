@@ -1,0 +1,24 @@
+pkgname=harammute-linux
+pkgver=1.0.18
+pkgrel=2
+pkgdesc='Local vocal separation server for the HaramMute browser extension'
+arch=('x86_64')
+options=('!strip')
+url='https://github.com/AS-Offical/HaramMute-Linux'
+license=('MIT')
+depends=('ffmpeg' 'curl' 'xdg-utils' 'python' 'python-gobject' 'gtk3' 'libayatana-appindicator' 'gcc-libs')
+optdepends=('deno: JavaScript runtime for yt-dlp')
+source=()
+sha256sums=()
+
+package() {
+    install -d "$pkgdir/opt/harammute-linux"
+    cp -al "$startdir/harammute-linux/." "$pkgdir/opt/harammute-linux/"
+    install -Dm755 "$startdir/harammute" "$pkgdir/usr/bin/harammute"
+    install -Dm755 "$startdir/harammute-open" "$pkgdir/usr/bin/harammute-open"
+    install -Dm755 "$startdir/harammute-tray" "$pkgdir/usr/bin/harammute-tray"
+    install -Dm644 "$startdir/harammute.desktop" "$pkgdir/usr/share/applications/harammute.desktop"
+    install -Dm644 "$startdir/harammute.service" "$pkgdir/usr/lib/systemd/user/harammute.service"
+    install -Dm644 "$pkgdir/opt/harammute-linux/icon.png" \
+        "$pkgdir/usr/share/icons/hicolor/256x256/apps/harammute.png"
+}

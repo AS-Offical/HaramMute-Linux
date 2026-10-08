@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import tempfile
 import threading
 import uuid
@@ -23,6 +24,15 @@ from typing import Any, Optional
 logger = logging.getLogger("app.jobs")
 
 ACTIVE_STATUSES = {"queued", "downloading", "separating", "packaging"}
+
+
+class JobCapacityExceeded(RuntimeError):
+    """Raised when the local job queue reaches its configured capacity."""
+
+    def __init__(self, limit_kind: str, limit: int) -> None:
+        self.limit_kind = limit_kind
+        self.limit = limit
+        super().__init__(f"{limit_kind} job limit reached ({limit})")
 
 
 class JobStatus(str, Enum):
@@ -208,6 +218,8 @@ class JobStore:
         return self.root / job_id
 
     def _job_file(self, job_id: str) -> Path:
+        if not re.fullmatch(r"[0-9a-f]{32}", job_id):
+            return self.root / ".invalid-job-id" / "job.json"
         return self.job_dir(job_id) / "job.json"
 
     # -- persistence ---------------------------------------------------------
@@ -241,6 +253,8 @@ class JobStore:
 
     # -- CRUD -----------------------------------------------------------------
     def create_job(self, job: Job) -> Job:
+        if not re.fullmatch(r"[0-9a-f]{32}", job.job_id):
+            raise ValueError("Job ID must be a 32-character lowercase UUID hex string")
         with self._lock:
             job.created_at = job.created_at or _utcnow()
             job.updated_at = _utcnow()
@@ -345,6 +359,32 @@ class JobStore:
             self.create_job(job)
             return job, True
 
+    def admit_local_job(
+        self,
+        job: Job,
+        *,
+        max_queued: int,
+        reuse_active: bool = True,
+    ) -> tuple[Job, bool]:
+        """Atomically enforce local queue limits and persist a new job."""
+        with self._lock:
+            if reuse_active:
+                existing = self.find_active_job(job.source_url, job.stems, job.owner_email)
+                if existing is not None:
+                    return existing, False
+
+            owner = (job.owner_email or "").lower()
+            owned = [
+                item for item in self._iter_jobs()
+                if (item.owner_email or "").lower() == owner
+            ]
+            queued = sum(item.status == JobStatus.queued for item in owned)
+            if queued >= max_queued:
+                raise JobCapacityExceeded("queued", max_queued)
+
+            self.create_job(job)
+            return job, True
+
     def count_jobs_by_owner(self, email: str, statuses: set) -> int:
         wanted = {JobStatus(status) if not isinstance(status, JobStatus) else status for status in statuses}
         with self._lock:
@@ -353,6 +393,28 @@ class JobStore:
                 for job in self._iter_jobs()
                 if (job.owner_email or "").lower() == (email or "").lower() and job.status in wanted
             )
+
+    def recover_interrupted_local_jobs(self) -> list[Job]:
+        """Fail stale in-progress work and return persisted queued work."""
+        queued_jobs = []
+        with self._lock:
+            for job in self._iter_jobs():
+                if job.status == JobStatus.queued:
+                    queued_jobs.append(job)
+                elif job.status in {
+                    JobStatus.downloading,
+                    JobStatus.separating,
+                    JobStatus.packaging,
+                }:
+                    job.status = JobStatus.failed
+                    job.message = "Processing stopped when HaramMute closed"
+                    job.error_detail = "The previous local worker was interrupted; retry this job."
+                    job.failure_stage = "desktop_runtime"
+                    job.failure_code = "desktop_runtime_interrupted"
+                    job.failure_recoverable = True
+                    job.updated_at = _utcnow()
+                    self._write(job)
+        return queued_jobs
 
     def cleanup(self, cutoff: datetime) -> int:
         """Delete job records whose last update predates the cutoff.
@@ -366,3 +428,13 @@ class JobStore:
                 if job.updated_at < cutoff:
                     removed += 1
         return removed
+
+    def expired_job_ids(self, cutoff: datetime) -> list[str]:
+        """List terminal jobs older than the retention window."""
+        with self._lock:
+            return [
+                job.job_id
+                for job in self._iter_jobs()
+                if job.status in {JobStatus.completed, JobStatus.failed}
+                and job.updated_at < cutoff
+            ]

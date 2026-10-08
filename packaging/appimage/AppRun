@@ -1,0 +1,64 @@
+#!/bin/sh
+set -eu
+HERE="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+APP_ROOT="$HERE/usr/lib/harammute-linux"
+DATA_DIR="${HARAMMUTE_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/HaramMute}"
+PYTHON_BIN="$APP_ROOT/python-runtime/bin/python3.12"
+PYTHON_PACKAGES="$APP_ROOT/python-packages"
+export HARAMMUTE_DATA_DIR="$DATA_DIR"
+export PATH="$APP_ROOT/bin:$HOME/.local/bin:$HOME/.deno/bin:$PATH"
+if [ -n "${LD_LIBRARY_PATH:-}" ]; then
+    export LD_LIBRARY_PATH="$APP_ROOT/../lib:$HERE/usr/lib:$LD_LIBRARY_PATH"
+else
+    export LD_LIBRARY_PATH="$APP_ROOT/../lib:$HERE/usr/lib"
+fi
+if [ ! -x "$PYTHON_BIN" ] || [ ! -d "$PYTHON_PACKAGES" ]; then
+    echo "HaramMute AppImage is missing its bundled Python runtime or packages." >&2
+    exit 1
+fi
+export HARAMMUTE_PYTHON_BINARY="$PYTHON_BIN"
+export PYTHONPATH="$PYTHON_PACKAGES:$APP_ROOT${PYTHONPATH:+:$PYTHONPATH}"
+export MUSIC_REMOVER_FFMPEG_BINARY="$APP_ROOT/bin/ffmpeg"
+export MUSIC_REMOVER_FFPROBE_BINARY="$APP_ROOT/bin/ffprobe"
+cd "$APP_ROOT"
+if ! command -v python3 >/dev/null 2>&1 || \
+    ! python3 -c '
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
+for namespace in ("AyatanaAppIndicator3", "AppIndicator3"):
+    try:
+        gi.require_version(namespace, "0.1")
+        repository = __import__("gi.repository", fromlist=[namespace])
+        getattr(repository, namespace)
+        break
+    except (ImportError, ValueError):
+        continue
+else:
+    raise SystemExit(1)
+' >/dev/null 2>&1; then
+    echo "HaramMute requires host GTK3, PyGObject, and an Ayatana/AppIndicator3 tray binding." >&2
+    echo "Install your distribution's tray bindings, then launch the AppImage again." >&2
+    exit 1
+fi
+if [ "${1:-}" = "--open" ]; then
+    shift
+    for command_name in curl xdg-open; do
+        if ! command -v "$command_name" >/dev/null 2>&1; then
+            echo "HaramMute AppImage requires $command_name from the host distribution." >&2
+            exit 1
+        fi
+    done
+    mkdir -p "$DATA_DIR/logs"
+    nohup env -u PYTHONPATH python3 "$APP_ROOT/tray_launcher.py" "$@" \
+        >>"$DATA_DIR/logs/tray.log" 2>&1 </dev/null &
+    for _ in $(seq 1 60); do
+        if curl --silent --fail --max-time 1 http://127.0.0.1:8765/health >/dev/null 2>&1; then
+            exec xdg-open http://127.0.0.1:8765
+        fi
+        sleep 0.5
+    done
+    command -v notify-send >/dev/null 2>&1 && notify-send "HaramMute" "The local service did not become ready."
+    exit 1
+fi
+exec env -u PYTHONPATH python3 "$APP_ROOT/tray_launcher.py" "$@"

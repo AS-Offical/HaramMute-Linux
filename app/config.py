@@ -54,7 +54,13 @@ class Settings(BaseSettings):
         description="Skip browser cookie extraction entirely. Avoids macOS keychain prompts but may fail on some videos."
     )
 
-    data_dir: Path = Field(default_factory=lambda: Path(os.getenv("MUSIC_REMOVER_DATA_DIR", "server_data")))
+    data_dir: Path = Field(
+        default_factory=lambda: Path(
+            os.getenv("MUSIC_REMOVER_DATA_DIR")
+            or os.getenv("HARAMMUTE_DATA_DIR")
+            or "server_data"
+        ).expanduser()
+    )
     max_workers: int = 5
     packaging_workers: int = Field(
         default_factory=lambda: max(1, min(2, (os.cpu_count() or 2))),
@@ -75,7 +81,7 @@ class Settings(BaseSettings):
     cookies_file: Path | None = Field(default=None, description="Optional path to yt-dlp cookies file")
     download_delay: float = Field(
         default=5.0,
-        description="Delay in seconds between yt-dlp downloads to avoid rate limiting"
+        description="Minimum seconds between yt-dlp media download attempts"
     )
     modal_app_name: str = "music-remover-chunked"
 

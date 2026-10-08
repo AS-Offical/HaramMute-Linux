@@ -2,7 +2,7 @@
 Type=Application
 Name=HaramMute
 Comment=Local vocal separation for the HaramMute browser extension
-Exec="@APP_DIR@/harammute-open"
+Exec=harammute-open
 Icon=harammute
 Terminal=false
 Categories=AudioVideo;Audio;

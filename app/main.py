@@ -1,6 +1,9 @@
 import asyncio
+import fcntl
+import ipaddress
 import logging
 import os
+import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 import json
@@ -99,7 +102,7 @@ else:
 
     sentry_sdk = _SentryStub()
 
-from .jobs import Job, JobStatus, JobStore
+from .jobs import Job, JobCapacityExceeded, JobStatus, JobStore
 from .limits import (
     JOBS_RATE_LIMIT_PER_HOUR,
     MAX_CONCURRENT_JOBS,
@@ -273,10 +276,6 @@ def _enforce_jobs_rate_limit(email: str) -> None:
 
 
 def _enforce_concurrency_limits(email: str) -> None:
-    # TODO: Re-enable after fixing counter decrement bug (counters get stuck when workers crash)
-    # See: commit 0a02e02 introduced O(1) counters but decrements can silently fail
-    return
-
     if settings.dev_mode:
         return
     queued = job_store.count_jobs_by_owner(email, {JobStatus.queued})
@@ -285,6 +284,11 @@ def _enforce_concurrency_limits(email: str) -> None:
             status_code=429,
             detail=f"Queue full (max {MAX_QUEUED_JOBS} pending)",
         )
+
+    # The desktop executor is the active-job scheduler in local mode. New
+    # jobs may remain queued while its fixed worker count is busy.
+    if settings.local_mode:
+        return
 
     active_statuses = {JobStatus.downloading, JobStatus.separating, JobStatus.packaging}
     active = job_store.count_jobs_by_owner(email, active_statuses)
@@ -310,24 +314,48 @@ app = FastAPI(title="HaramMute Server", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten in production
+    allow_origins=[] if settings.local_mode else ["*"],
+    allow_origin_regex=(
+        r"^(chrome-extension|moz-extension)://[a-zA-Z0-9._@{}-]+$"
+        if settings.local_mode else None
+    ),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def enforce_local_client_boundary(request: Request, call_next):
+    """Keep the unauthenticated desktop API inaccessible from the LAN."""
+    if settings.local_mode:
+        host = request.client.host if request.client else ""
+        try:
+            address = ipaddress.ip_address(host)
+            if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
+                address = address.ipv4_mapped
+            if not address.is_loopback:
+                return HTMLResponse("Local HaramMute API only", status_code=403)
+        except ValueError:
+            return HTMLResponse("Local HaramMute API only", status_code=403)
+    return await call_next(request)
+
 job_store = JobStore()
+_server_instance_lock = None
 
 # Bounded thread pool for local mode (dev only) - prevents resource exhaustion
 _local_executor: Optional[ThreadPoolExecutor] = None
+_local_executor_lock = threading.Lock()
 
 
 def _get_local_executor() -> ThreadPoolExecutor:
     """Lazily create a bounded thread pool for local mode."""
     global _local_executor
-    if _local_executor is None:
-        _local_executor = ThreadPoolExecutor(max_workers=settings.max_workers)
-    return _local_executor
+    with _local_executor_lock:
+        if _local_executor is None:
+            worker_count = max(1, min(settings.max_workers, MAX_CONCURRENT_JOBS))
+            _local_executor = ThreadPoolExecutor(max_workers=worker_count)
+        return _local_executor
 
 
 def _spawn_job_worker(job_id: str, source_url: str, stems: int) -> Optional[str]:
@@ -382,16 +410,45 @@ def _spawn_job_worker(job_id: str, source_url: str, stems: int) -> Optional[str]
 async def shutdown_event() -> None:
     """Shutdown the local thread pool to avoid hanging on dev shutdowns."""
     global _local_executor
-    if _local_executor is not None:
-        _local_executor.shutdown(wait=False)
-        _local_executor = None
-        logger.info("Local executor shut down")
+    with _local_executor_lock:
+        if _local_executor is not None:
+            _local_executor.shutdown(wait=False)
+            _local_executor = None
+            logger.info("Local executor shut down")
+    global _server_instance_lock
+    if _server_instance_lock is not None:
+        fcntl.flock(_server_instance_lock.fileno(), fcntl.LOCK_UN)
+        _server_instance_lock.close()
+        _server_instance_lock = None
+
+
+@app.on_event("startup")
+async def recover_local_runtime() -> None:
+    """Recover persistent queued jobs after a desktop restart."""
+    if not settings.local_mode:
+        return
+    global _server_instance_lock
+    _server_instance_lock = (settings.data_dir / ".server.lock").open("a+")
+    try:
+        fcntl.flock(_server_instance_lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError as exc:
+        _server_instance_lock.close()
+        _server_instance_lock = None
+        raise RuntimeError(
+            f"Another HaramMute server is already using data directory {settings.data_dir}"
+        ) from exc
+    queued_jobs = await run_sync(job_store.recover_interrupted_local_jobs)
+    if queued_jobs:
+        logger.info("Resuming %d queued local jobs from the previous session", len(queued_jobs))
+    for job in queued_jobs:
+        await run_sync(_spawn_job_worker, job.job_id, job.source_url, job.stems)
 
 
 @app.get("/health")
 async def healthcheck() -> dict:
     resp = {
         "status": "ok",
+        "service": "harammute",
         "version": os.environ.get("HARAMMUTE_VERSION", "unknown"),
     }
     update_ver = os.environ.get("HARAMMUTE_UPDATE_VERSION")
@@ -1177,9 +1234,6 @@ async def create_job(payload: JobCreateRequest, user: dict = Depends(_get_curren
             )
             return JobStatusResponse.from_job(active_job)
 
-    await run_sync(_enforce_jobs_rate_limit, owner_email)
-    await run_sync(_enforce_concurrency_limits, owner_email)
-
     # Check if we have a cached result for this URL (unless skip_cache is True)
     if not payload.skip_cache:
         # Reload volume to see completed jobs from other containers
@@ -1196,6 +1250,9 @@ async def create_job(payload: JobCreateRequest, user: dict = Depends(_get_curren
     else:
         logger.info("Skipping cache for URL %s (skip_cache=True)", payload.url)
 
+    await run_sync(_enforce_jobs_rate_limit, owner_email)
+    await run_sync(_enforce_concurrency_limits, owner_email)
+
     # Create new job
     job_id = uuid.uuid4().hex
     job = Job(
@@ -1207,8 +1264,20 @@ async def create_job(payload: JobCreateRequest, user: dict = Depends(_get_curren
         progress=0.0,
     )
     created_new_job = True
-    if settings.local_mode and not payload.skip_cache:
-        job, created_new_job = await run_sync(job_store.create_or_reuse_active_job, job)
+    if settings.local_mode:
+        try:
+            job, created_new_job = await run_sync(
+                job_store.admit_local_job,
+                job,
+                max_queued=MAX_QUEUED_JOBS,
+                reuse_active=not payload.skip_cache,
+            )
+        except JobCapacityExceeded as exc:
+            label = "pending" if exc.limit_kind == "queued" else "concurrent"
+            raise HTTPException(
+                status_code=429,
+                detail=f"Too many {label} jobs (max {exc.limit})",
+            ) from exc
         job_id = job.job_id
     else:
         await run_sync(job_store.create_job, job)
@@ -1255,6 +1324,10 @@ async def create_job(payload: JobCreateRequest, user: dict = Depends(_get_curren
         if failed_job is not None:
             job = failed_job
             _capture_local_worker_failure(job, exc, "job_admission")
+
+    latest_job = await run_sync(job_store.get_job, job_id)
+    if latest_job is not None:
+        job = latest_job
 
     await run_sync(_cleanup_expired_jobs)
     return JobStatusResponse.from_job(job)
@@ -1363,26 +1436,20 @@ async def download_chunk(job_id: str, chunk_index: int, user: dict = Depends(_ge
 
 def _cleanup_expired_jobs() -> None:
     cutoff = datetime.now(timezone.utc) - timedelta(hours=settings.keep_hours)
-    root = settings.data_dir / "jobs"
-    if not root.exists():
-        return
-    for job_dir in root.iterdir():
+    for job_id in job_store.expired_job_ids(cutoff):
+        job_dir = job_store.job_dir(job_id)
         try:
-            updated_at = datetime.fromtimestamp(job_dir.stat().st_mtime, tz=timezone.utc)
-        except FileNotFoundError:
-            continue
-        if updated_at < cutoff:
-            try:
-                _remove_path(job_dir)
-            except OSError:
-                logger.warning("Failed to remove %s", job_dir)
-    job_store.cleanup(cutoff)
+            _remove_path(job_dir)
+        except OSError:
+            logger.warning("Failed to remove %s", job_dir)
     # Commit volume changes after cleanup to persist deletions
     _commit_volume_if_modal()
 
 
 def _remove_path(path: Path) -> None:
-    if path.is_dir():
+    if path.is_symlink():
+        path.unlink(missing_ok=True)
+    elif path.is_dir():
         for child in path.iterdir():
             _remove_path(child)
         path.rmdir()
@@ -1409,7 +1476,7 @@ def _commit_volume_if_modal() -> None:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000)
+    uvicorn.run("app.main:app", host="127.0.0.1", port=8765)
 
 
 __all__ = ["app"]

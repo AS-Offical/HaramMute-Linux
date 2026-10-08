@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# HaramMute Linux launcher (console mode)
+set -euo pipefail
+
+APP_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+APP_DIR="$(cd "$(dirname "$APP_PATH")" && pwd)"
+DATA_DIR="${MUSIC_REMOVER_DATA_DIR:-${HARAMMUTE_DATA_DIR:-$HOME/.local/share/HaramMute}}"
+
+HOST="127.0.0.1"
+PORT="8765"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --host)
+            if [[ $# -lt 2 ]]; then echo "--host requires a value" >&2; exit 2; fi
+            HOST="$2"; shift 2 ;;
+        --port)
+            if [[ $# -lt 2 ]]; then echo "--port requires a value" >&2; exit 2; fi
+            PORT="$2"; shift 2 ;;
+        *) echo "Unknown option: $1" >&2; exit 1 ;;
+    esac
+done
+
+case "$HOST" in
+    127.0.0.1) ;;
+    *) echo "The browser extension expects HaramMute at 127.0.0.1, and the local API has no login." >&2
+       echo "Keep the bind address at 127.0.0.1; network binding is disabled for safety." >&2
+       exit 2 ;;
+esac
+
+if [[ ! "$PORT" =~ ^[0-9]+$ ]] || ((PORT < 1 || PORT > 65535)); then
+    echo "Port must be an integer between 1 and 65535." >&2
+    exit 2
+fi
+
+export MUSIC_REMOVER_LOCAL_MODE=true
+export MUSIC_REMOVER_DATA_DIR="$DATA_DIR"
+export PATH="$HOME/.local/bin:$HOME/.deno/bin:$PATH"
+export HARAMMUTE_VERSION="${HARAMMUTE_VERSION:-1.0.18-linux}"
+export PYTHONIOENCODING=utf-8
+mkdir -p "$DATA_DIR"
+
+cd "$APP_DIR"
+PYTHON_BIN="${HARAMMUTE_PYTHON_BINARY:-$APP_DIR/venv/bin/python}"
+if [[ -z "${HARAMMUTE_PYTHON_BINARY:-}" && -x "$APP_DIR/python-runtime/bin/python3.12" ]]; then
+    PYTHON_BIN="$APP_DIR/python-runtime/bin/python3.12"
+    export PYTHONPATH="$APP_DIR/python-packages:$APP_DIR${PYTHONPATH:+:$PYTHONPATH}"
+    export PATH="$APP_DIR/bin:$PATH"
+    [[ ! -x "$APP_DIR/bin/ffmpeg" ]] || export MUSIC_REMOVER_FFMPEG_BINARY="${MUSIC_REMOVER_FFMPEG_BINARY:-$APP_DIR/bin/ffmpeg}"
+    [[ ! -x "$APP_DIR/bin/ffprobe" ]] || export MUSIC_REMOVER_FFPROBE_BINARY="${MUSIC_REMOVER_FFPROBE_BINARY:-$APP_DIR/bin/ffprobe}"
+fi
+exec "$PYTHON_BIN" -m uvicorn app.main:app \
+    --host "$HOST" --port "$PORT" --no-access-log

@@ -21,6 +21,7 @@ from pathlib import Path
 from .config import settings
 from .jobs import Job, JobStore, JobStatus
 from . import local_processing as lp
+from .limits import MAX_VIDEO_SECONDS
 
 logger = logging.getLogger("app.pipeline")
 
@@ -71,6 +72,7 @@ def process_job(job_id: str, job_store: JobStore) -> None:
             message="Downloading audio",
             progress=PROGRESS_DOWNLOAD_START,
         )
+        _mark_failure_stage(stats, "download")
 
         def download_progress(fraction: float) -> None:
             span = PROGRESS_DOWNLOAD_END - PROGRESS_DOWNLOAD_START
@@ -79,11 +81,22 @@ def process_job(job_id: str, job_store: JobStore) -> None:
                 progress=round(PROGRESS_DOWNLOAD_START + span * fraction, 4),
             )
 
-        source_file = lp.download_audio(job.source_url, work_dir, progress_callback=download_progress)
+        source_file = lp.download_audio(
+            job.source_url,
+            work_dir,
+            progress_callback=download_progress,
+            delay_between_attempts=settings.download_delay,
+        )
         stats["download_seconds"] = round((_now() - started).total_seconds(), 2)
 
+        _mark_failure_stage(stats, "conversion")
         wav_path = lp.convert_to_wav(source_file, work_dir)
+        _mark_failure_stage(stats, "validation")
         duration = lp.probe_duration(wav_path)
+        if duration > MAX_VIDEO_SECONDS:
+            raise ValueError(
+                f"Media is longer than the 90-minute processing limit ({duration / 60:.1f} minutes)"
+            )
         stats["duration_seconds"] = round(duration, 2)
         logger.info("Audio duration: %.2f seconds", duration)
 
@@ -127,6 +140,7 @@ def process_job(job_id: str, job_store: JobStore) -> None:
 
         stems_files: dict[str, Path] = {}
         chunk_files: dict[int, Path] = {}
+        chunk_vocal_wavs: dict[int, Path] = {}
 
         if not use_chunks:
             _separate_single_file(
@@ -135,8 +149,21 @@ def process_job(job_id: str, job_store: JobStore) -> None:
         else:
             _separate_chunked(
                 job_store, job_id, wav_path, work_dir, result_dir,
-                chunks, chunk_duration, chunk_files, stats,
+                chunks, chunk_duration, chunk_files, chunk_vocal_wavs, stats,
             )
+            _mark_failure_stage(stats, "packaging")
+            full_vocals = lp.concatenate_wav_chunks_to_mp3(
+                [chunk_vocal_wavs[index] for index in sorted(chunk_vocal_wavs)],
+                result_dir / "vocals.mp3",
+                quality=settings.encoding_quality,
+            )
+            stems_files["vocals"] = full_vocals
+            for vocal_wav in chunk_vocal_wavs.values():
+                try:
+                    vocal_wav.unlink(missing_ok=True)
+                except OSError as exc:
+                    logger.warning("Could not remove temporary vocal chunk %s: %s", vocal_wav, exc)
+            stats["assembled_vocals"] = True
 
         stats["separation_seconds"] = round(
             (_now() - separation_started).total_seconds(), 2
@@ -155,6 +182,7 @@ def process_job(job_id: str, job_store: JobStore) -> None:
         )
 
         completed_at = _now()
+        stats.pop("_failure_stage", None)
         stats["total_seconds"] = round((completed_at - started).total_seconds(), 2)
         stats["mode"] = "chunked" if use_chunks else "single"
         logger.info("Job %s completed in %.1fs", job_id, stats["total_seconds"])
@@ -168,7 +196,7 @@ def process_job(job_id: str, job_store: JobStore) -> None:
         )
 
     except Exception as exc:  # noqa: BLE001 - report every failure into the job
-        stage = stats.get("_failure_stage", "processing")
+        stage = stats.pop("_failure_stage", "processing")
         logger.exception("Job %s failed during %s: %s", job_id, stage, exc)
         failed_at = _now()
         stats["failed_after_seconds"] = round((failed_at - started).total_seconds(), 2)
@@ -188,13 +216,20 @@ def _mark_failure_stage(stats: dict, stage: str) -> None:
     stats["_failure_stage"] = stage
 
 
-def _encode_chunk_vocals(vocals_wav: Path, result_dir: Path, name: str) -> Path:
+def _encode_chunk_vocals(
+    vocals_wav: Path,
+    result_dir: Path,
+    name: str,
+    *,
+    remove_source: bool = True,
+) -> Path:
     target = result_dir / name
     lp.transcode_to_mp3(vocals_wav, target, quality=settings.encoding_quality)
-    try:
-        vocals_wav.unlink(missing_ok=True)
-    except OSError:
-        pass
+    if remove_source:
+        try:
+            vocals_wav.unlink(missing_ok=True)
+        except OSError:
+            pass
     return target
 
 
@@ -216,6 +251,8 @@ def _separate_single_file(
         force_cpu=settings.force_cpu,
     )
     stats["separation_runtime_seconds"] = outcome["seconds"]
+    stats["execution_device"] = outcome.get("device", "unknown")
+    stats["execution_providers"] = outcome.get("providers", [])
     _safe_update(job_store, job_id, progress=0.85, message="Encoding vocals")
 
     _mark_failure_stage(stats, "packaging")
@@ -232,6 +269,7 @@ def _separate_chunked(
     chunks: list[dict],
     chunk_duration: float,
     chunk_files: dict,
+    chunk_vocal_wavs: dict[int, Path],
     stats: dict,
 ) -> None:
     total = len(chunks)
@@ -267,14 +305,20 @@ def _separate_chunked(
                 model_cache_dir=model_cache,
                 force_cpu=settings.force_cpu,
             )
+            stats.setdefault("chunk_execution_providers", {})[str(index)] = {
+                "device": outcome.get("device", "unknown"),
+                "providers": outcome.get("providers", []),
+            }
 
             job_store.update_chunk(job_id, index, status="encoding", progress=0.9)
             _mark_failure_stage(stats, f"chunk_{index}_encoding")
             vocals_mp3 = _encode_chunk_vocals(
-                outcome["vocals"], result_dir, f"vocals_chunk_{index}.mp3"
+                outcome["vocals"], result_dir, f"vocals_chunk_{index}.mp3",
+                remove_source=False,
             )
 
             chunk_files[index] = vocals_mp3
+            chunk_vocal_wavs[index] = outcome["vocals"]
             job_store.update_chunk(
                 job_id, index,
                 status="completed",
@@ -282,7 +326,15 @@ def _separate_chunked(
                 file_ready=True,
                 error=None,
             )
-            done = sum(1 for c in chunks if c.get("status") == "completed")
+            current_job = job_store.get_job(job_id)
+            done = (
+                sum(
+                    1 for item in current_job.chunks
+                    if item.get("status") == "completed" and item.get("file_ready")
+                )
+                if current_job is not None
+                else index + 1
+            )
             span = PROGRESS_SEPARATE_END - PROGRESS_SEPARATE_START
             _safe_update(
                 job_store, job_id,

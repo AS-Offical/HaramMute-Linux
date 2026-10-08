@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /usr/bin/python3 /opt/harammute-linux/tray_launcher.py "$@"

@@ -1,0 +1,10 @@
+Package: harammute-linux
+Version: 1.0.18-2
+Section: sound
+Priority: optional
+Architecture: amd64
+Depends: ffmpeg, curl, python3-gi, gir1.2-gtk-3.0, gir1.2-ayatanaappindicator3-0.1, xdg-utils, libgomp1
+Maintainer: HaramMute Linux contributors
+Description: Local vocal separation server for the HaramMute browser extension
+ Independent Linux implementation of the HaramMute local service.
+ The browser-extension API remains available at 127.0.0.1:8765.

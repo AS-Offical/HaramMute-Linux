@@ -3,6 +3,8 @@
   <img src="assets/cover.png" alt="HaramMute Linux">
 </p>
 
+> **الإصدارات / Releases:** [صفحة الإصدارات والتنزيلات](https://github.com/AS-Offical/HaramMute-Linux/releases). نزّل الحزم المنشورة هناك فقط؛ مجلد `dist/` في نسخة المصدر قد يحتوي على ملفات بناء محلية قديمة.
+
 ## العربية
 
 ### نبذة عن المشروع
@@ -40,11 +42,11 @@ uvicorn (127.0.0.1:8765)
        |     |
        |     +-- audio-separator
        |           UVR-MDX-NET-Voc_FT.onnx
-       |           CPU / CUDA
+       |           CPU / CUDA / OpenVINO / MIGraphX
        |
        +-- app/pipeline.py
-             Processing orchestration
-             Progress tracking
+            Processing orchestration
+            Progress tracking and final chunk assembly
 ```
 
 ### تخزين البيانات
@@ -69,67 +71,119 @@ models/     Model files
 ## المتطلبات
 
 - Linux
-- Python 3.10 إلى 3.12
+- Python 3.10 إلى 3.12؛ يجهز المثبت Python 3.12 محليًا عبر `uv` إذا كانت نسخة التوزيعة أحدث
 - `ffmpeg`
 - `ffprobe`
+- Python bindings for Ayatana AppIndicator or compatible AppIndicator3 (Tray)
 - اتصال بالإنترنت لتنزيل الوسائط عند الحاجة
+
+### التنزيلات والإصدارات
+
+تُنشر الإصدارات والحزم الجاهزة في [GitHub Releases](https://github.com/AS-Offical/HaramMute-Linux/releases). اختر الحزمة المناسبة لتوزيعتك (`.deb` أو `.rpm` أو `.pkg.tar.zst`) أو AppImage، وتأكد من أن الإصدار يذكر دعم `x86_64`. إذا لم تظهر حزمة تثبيت ضمن ملفات الإصدار، استخدم تعليمات البناء من المصدر أدناه؛ لا تستخدم ملفًا قديمًا من مجلد `dist/`.
 
 ### تسريع المعالجة
 
 يعمل المشروع باستخدام CPU بشكل افتراضي.
 
-يمكن استخدام NVIDIA CUDA تلقائيًا عند تثبيت `onnxruntime-gpu`.
+يتعرف التطبيق تلقائيًا على مزودي ONNX Runtime المثبتين: NVIDIA CUDA، وIntel OpenVINO، وAMD MIGraphX، ثم يستخدم CPU تلقائيًا إذا لم يتوفر مزود مناسب. يجب اختيار حزمة التسريع المطابقة لكرت الشاشة وتعريفاته؛ تثبيت الحزمة وحده لا يضيف دعمًا لتعريف أو جهاز غير متوافق.
 
-على الأجهزة التي تدعم AVX2، يمكن استخدام إصدارات أحدث من PyTorch وONNX Runtime للحصول على أداء أفضل.
+يدعم مثبت المشروع الاختيارات التالية:
+
+```bash
+./install.sh --acceleration cpu      # المسار الافتراضي والأوسع توافقًا
+./install.sh --acceleration nvidia   # يتطلب تعريف NVIDIA وCUDA/cuDNN المتوافقين
+./install.sh --acceleration intel    # CPU أو GPU أو NPU عبر OpenVINO
+./install.sh --acceleration amd      # MIGraphX؛ يعتمد توفره على إصدار ROCm وglibc والجهاز
+```
+
+يبقى CPU مسار الرجوع الآمن إذا لم يتوفر مزود GPU أو فشل تحميله.
 
 ---
 
 ## التثبيت
 
-انتقل إلى مجلد المشروع:
+### التثبيت من المصدر
+
+إذا لم تتوفر حزمة لتوزيعتك في [صفحة الإصدارات](https://github.com/AS-Offical/HaramMute-Linux/releases)، ثبّت نسخة المصدر وشغّل المثبت:
 
 ```bash
-cd ~/harammute-linux
+git clone https://github.com/AS-Offical/HaramMute-Linux.git
+cd HaramMute-Linux
+./install.sh --acceleration cpu
 ```
 
-أنشئ بيئة Python افتراضية:
+يطلب المثبت صلاحية المدير فقط لإضافة متطلبات النظام، ثم ينشئ بيئة Python ويجهز مشغل التطبيق وبدء التشغيل التلقائي. تنزيل PyTorch واعتماديات فصل الصوت قد يحتاج عدة جيجابايت من المساحة والإنترنت.
+
+يمكن تجاوز تثبيت حزم النظام إذا كانت مجهزة مسبقًا باستخدام `HARAMMUTE_SKIP_SYSTEM_DEPS=1 ./install.sh`. تحتاج بيئة Python إلى عدة جيجابايت بسبب PyTorch وONNX Runtime.
+
+يتعرف المثبت على Debian وFedora وArch وopenSUSE وGentoo، ثم يتحقق من وجود FFmpeg وGTK3 وPyGObject وAyatana AppIndicator أو AppIndicator3 المتوافق قبل إكمال التثبيت. على التوزيعات الأخرى، جهز `ffmpeg` و`ffprobe` و`curl` وحزم GTK3 وPyGObject وواحدًا من مزودي AppIndicator ثم شغّله مع `HARAMMUTE_SKIP_SYSTEM_DEPS=1`. خدمة المستخدم تشغّل Tray والخادم المحلي معًا؛ إذا تعطل Tray تتوقف الخدمة والخادم. ظهور الأيقونة يحتاج لوحة سطح مكتب تدعم AppIndicator/SNI. تتطلب PyTorch وONNX Runtime توزيعة Linux تستخدم glibc؛ Alpine/musl غير مدعومة حاليًا بهذه الإصدارات المثبتة.
+
+### تثبيت حزمة إصدار
+
+للحزم الجاهزة، نزّل ملف التوزيعة من [صفحة الإصدارات](https://github.com/AS-Offical/HaramMute-Linux/releases) واتبع أمر التثبيت المقابل أدناه.
+
+لبناء حزمة Debian وAppImage بمعمارية x86_64 بعد تجهيز Python المستقل والبيئة، استخدم:
 
 ```bash
-python3 -m venv venv
+./install.sh --managed-python --acceleration cpu
+APPIMAGETOOL=/path/to/appimagetool.AppImage \
+LINUXDEPLOY=/path/to/linuxdeploy.AppImage ./packaging/build-linux-packages.sh
 ```
 
-ثبّت نسخة PyTorch المخصصة للـ CPU:
+يتطلب بناء AppImage أيضًا `linuxdeploy` و`appimagetool`، ويجب بناؤه على أقدم إصدار glibc مستهدف. يمكن بناء حزمة Debian وحدها دون أدوات AppImage؛ يتجاوزها السكربت عند غياب الأدوات. تتضمن الحزم Python 3.12 المستقل ومكتبات Python وDeno؛ وحزمة Debian تعتمد على FFmpeg ومكتبات Tray الخاصة بالتوزيعة. يضم AppImage FFmpeg وتبعياته، لكنه يحتاج GTK3 وPyGObject وAyatana AppIndicator أو AppIndicator3 من النظام المضيف. لا يبدأ AppImage الخادم إذا لم تتوفر متطلبات Tray.
+
+لبناء الحزمة الأصلية على Arch أو Fedora/openSUSE، بعد تجهيز البيئة نفسها:
 
 ```bash
-venv/bin/pip install torch==2.4.1 torchvision==0.19.1 \
-    --index-url https://download.pytorch.org/whl/cpu
+./packaging/build-native-packages.sh
 ```
 
-ثم ثبّت باقي المتطلبات:
+ينتج `makepkg` حزمة Arch وينتج `rpmbuild` حزمة RPM بحسب أدوات البناء المثبتة. ابنِ الحزمة على عائلة التوزيعة المستهدفة. يعمل AppImage كمسار التوزيعات الأخرى المبنية على glibc، لكنه لا يغطي Alpine/musl أو كل معماريات المعالجات؛ الباني الحالي يستهدف x86_64. CPU هو الاختيار الافتراضي. يمكن اختيار تسريع GPU قبل البناء، مع بقاء تعريفات الجهاز ومكتبات CUDA/ROCm متطلبات على الجهاز.
+
+لتثبيت حزمة Debian الناتجة:
 
 ```bash
-venv/bin/pip install -r requirements.txt
+sudo apt install ./dist/harammute-linux_*_amd64.deb
 ```
 
-تحتاج البيئة الافتراضية إلى حوالي 1.5 GB من مساحة التخزين.
+تثبيت الحزم الأصلية على التوزيعات الأخرى:
+
+```bash
+sudo pacman -U ./dist/harammute-linux-*.pkg.tar.zst  # Arch ومشتقاته
+sudo dnf install ./dist/harammute-linux-*.rpm         # Fedora/RHEL
+sudo zypper install ./dist/harammute-linux-*.rpm      # openSUSE
+```
+
+لتشغيل AppImage، اجعله قابلًا للتنفيذ ثم افتحه:
+
+```bash
+chmod +x ./dist/HaramMute-*-x86_64.AppImage
+./dist/HaramMute-*-x86_64.AppImage
+```
+
+حزمة التوزيعة الأصلية تربط الخادم وTray في خدمة واحدة. فعّل الخدمة لتشغيلهما معًا:
+
+```bash
+systemctl --user enable --now harammute
+```
 
 ---
 
 ## التشغيل
 
-### تشغيل الخادم
+### تشغيل التطبيق وTray
 
 ```bash
 ./harammute
 ```
 
-يعمل الخادم افتراضيًا على:
+يشغّل الأمر Tray والخادم معًا، ويعمل الخادم افتراضيًا على:
 
 ```text
 http://127.0.0.1:8765
 ```
 
-لتشغيله باستخدام منفذ مختلف:
+يمكن تمرير منفذ آخر للاختبار؛ يجب أن يظل المنفذ `8765` لاستخدام الإضافة دون تغيير إعداداتها:
 
 ```bash
 ./harammute --port 8901
@@ -139,12 +193,9 @@ http://127.0.0.1:8765
 
 ## تشغيل الخادم باستخدام systemd
 
-يمكن تشغيل الخادم كخدمة للمستخدم بحيث يستمر في العمل بعد تسجيل الخروج:
+ينشئ المثبت ملف خدمة يشغّل Tray والخادم كعملية واحدة. لتشغيلهما:
 
 ```bash
-cp harammute.service ~/.config/systemd/user/
-
-systemctl --user daemon-reload
 systemctl --user enable --now harammute
 ```
 
@@ -158,10 +209,10 @@ journalctl --user -u harammute -f
 
 ## Tray Launcher
 
-يمكن تشغيل أيقونة النظام باستخدام:
+ينشئ المثبت مشغل القائمة ويضيفه إلى بدء التشغيل التلقائي. لتشغيله يدويًا:
 
 ```bash
-python3 tray_launcher.py
+~/.local/bin/harammute-tray
 ```
 
 يتطلب ذلك وجود الحزمة:
@@ -172,20 +223,15 @@ gir1.2-ayatanaappindicator3-0.1
 
 يعتمد الـ Tray Launcher على AppIndicator / SNI، وبالتالي يمكن استخدامه مع بيئات سطح المكتب التي تدعم هذه التقنية، مثل XFCE وGNOME.
 
-إذا كان الخادم يعمل بالفعل، يعيد الـ Tray Launcher استخدام الخادم الموجود بدلًا من تشغيل نسخة أخرى.
+يتأكد المشغل من استجابة `/health` قبل إعادة استخدام أي خادم على المنفذ، ويسجل أخطاء بدء الخادم في `~/.local/share/HaramMute/logs/server.log`.
 
-### التشغيل تلقائيًا عند تسجيل الدخول
-
-```bash
-mkdir -p ~/.config/autostart
-cp harammute-tray.desktop ~/.config/autostart/
-```
+عند معالجة المقاطع، تبقى ملفات MP3 لكل مقطع متاحة للتشغيل التدريجي، ثم يجمع الخادم الصوت إلى ملف `vocals.mp3` كامل عند انتهاء المهمة.
 
 ---
 
 ## Desktop Entry
 
-لإضافة HaramMute إلى قائمة التطبيقات:
+يضيف المثبت HaramMute إلى قائمة التطبيقات وبدء التشغيل تلقائيًا. أعد تشغيل `./install.sh` لتحديث مداخل سطح المكتب بعد نقل مجلد المشروع.
 
 ```bash
 mkdir -p ~/.local/share/applications
@@ -204,7 +250,7 @@ http://127.0.0.1:8765
 
 يستخدم الخادم نفس واجهة الـ API المتوقعة من نسخة Windows.
 
-يتم تجاوز مصادقة المهام في الوضع المحلي بشكل مقصود، لأن الخادم يعمل محليًا على جهاز المستخدم.
+يتم تجاوز مصادقة المهام في الوضع المحلي؛ لذلك يرفض المشغل ربط الخادم بعنوان شبكة عام ويستمع افتراضيًا على loopback فقط. يسمح CORS بمصادر إضافات Chrome وFirefox.
 
 ---
 
@@ -214,9 +260,17 @@ http://127.0.0.1:8765
 
 | المتغير | القيمة الافتراضية | الوصف |
 |---|---|---|
-| `HARAMMUTE_DATA_DIR` | `~/.local/share/HaramMute` | المجلد الرئيسي لبيانات المشروع |
+| `MUSIC_REMOVER_DATA_DIR` أو `HARAMMUTE_DATA_DIR` | `~/.local/share/HaramMute` عند التشغيل عبر المشغل | المجلد الرئيسي لبيانات المشروع |
 | `MUSIC_REMOVER_CHUNK_THRESHOLD` | `120` | الحد الزمني بالثواني قبل تقسيم الصوت إلى أجزاء مدتها 60 ثانية |
 | `MUSIC_REMOVER_FORCE_CPU` | غير محدد | تعيينه إلى `true` لإجبار البرنامج على استخدام CPU |
+| `MUSIC_REMOVER_COOKIES_FILE` | غير محدد | ملف cookies بصيغة Netscape لـ yt-dlp |
+| `MUSIC_REMOVER_BROWSER_FOR_COOKIES` | اكتشاف تلقائي | اختيار متصفح لاستخراج cookies منه |
+| `MUSIC_REMOVER_SKIP_BROWSER_COOKIES` | `false` | منع محاولة قراءة ملفات تعريف المتصفح |
+| `MUSIC_REMOVER_DENO_BINARY` | `deno` | مسار Deno المستخدم لميزات JavaScript في yt-dlp |
+| `MUSIC_REMOVER_YT_DLP_BINARY` | `yt-dlp` | مسار yt-dlp |
+| `MUSIC_REMOVER_FFMPEG_BINARY` | `ffmpeg` | مسار FFmpeg |
+| `MUSIC_REMOVER_DOWNLOAD_DELAY` | `5` ثوانٍ | أقل فاصل بين محاولات تنزيل الوسائط |
+| الحد الأقصى لطول الوسيط | `90` دقيقة | يتم رفض الوسائط الأطول قبل تنزيلها عند توفر metadata، وإلا بعد فحص الملف |
 | `MUSIC_REMOVER_MODEL_NAME` | `UVR-MDX-NET-Voc_FT.onnx` | نموذج فصل الصوت المستخدم |
 | `MUSIC_REMOVER_ENCODING_QUALITY` | `4` | جودة MP3 بنظام VBR، حيث `0` أعلى جودة و`9` أسرع ترميز |
 | `HARAMMUTE_TELEMETRY_ENABLED` | معطل | تفعيل PostHog Telemetry اختياريًا |
@@ -257,16 +311,7 @@ Encoding: VBR
 
 ## ملاحظات تقنية
 
-الملفات التالية هي مصادر upstream الأصلية بدون تعديل:
-
-```text
-app/main.py
-schemas.py
-limits.py
-config.py
-```
-
-تمت إعادة بناء الوحدات التالية لتوفير المعالجة المحلية على Linux:
+وحدات المعالجة المحلية الخاصة بنسخة Linux:
 
 ```text
 app/jobs.py
@@ -282,15 +327,11 @@ app/pipeline.py
 
 ### نموذج ONNX
 
-النموذج المضمن موجود داخل:
+ملف النموذج الكبير غير محفوظ في Git، لذلك لا يكون مضمّنًا في أرشيف المصدر. عند أول عملية فصل، يقوم `audio-separator` بتنزيل نموذج `UVR-MDX-NET-Voc_FT.onnx` إذا لم يجده في cache؛ يلزم اتصال بالإنترنت ومساحة تخزين إضافية. ملفات بيانات النماذج الوصفية موجودة في المستودع، ويُنسخ أي نموذج متاح إلى مجلد بيانات HaramMute عند بدء المعالجة.
 
-```text
-assets/model_cache/audio-separator/
-```
+### الفحوص الآلية
 
-ويتم نسخه إلى مجلد بيانات HaramMute عند أول تشغيل.
-
-لا يحتاج النموذج إلى تنزيل إضافي أثناء التشغيل.
+يتحقق GitHub Actions من صياغة الشيفرة وسكربتات التثبيت، وملفات Desktop وsystemd وبيانات الحزم، كما يثبت متطلبات GTK وAppIndicator في حاويات Debian وFedora وArch وopenSUSE. هذه الفحوص لا تحاكي لوحة سطح مكتب لعرض الأيقونة ولا تغني عن فحص إصدار الحزمة النهائي.
 
 ---
 
@@ -352,8 +393,8 @@ uvicorn (127.0.0.1:8765)
        |           CPU / CUDA
        |
        +-- app/pipeline.py
-             Processing orchestration
-             Progress tracking
+            Processing orchestration
+             Progress tracking and final chunk assembly
 ```
 
 ### Data Storage
@@ -378,7 +419,7 @@ Service logs are managed through `journald` when the server is running as a syst
 ## Requirements
 
 - Linux
-- Python 3.10–3.12
+- Python 3.10–3.12; the installer uses `uv` to provision Python 3.12 locally when the distribution ships a newer version
 - `ffmpeg`
 - `ffprobe`
 - Internet access when media needs to be downloaded
@@ -387,58 +428,101 @@ Service logs are managed through `journald` when the server is running as a syst
 
 CPU processing is supported by default.
 
-NVIDIA CUDA can be used automatically when `onnxruntime-gpu` is installed.
+The installer detects NVIDIA CUDA, Intel OpenVINO, or AMD MIGraphX ONNX Runtime providers and falls back to CPU when acceleration is unavailable. Install the provider matching your hardware and driver stack:
 
-On AVX2-capable systems, newer PyTorch and ONNX Runtime builds may provide better performance.
+```bash
+./install.sh --acceleration cpu      # default, widest compatibility
+./install.sh --acceleration nvidia   # requires compatible NVIDIA CUDA/cuDNN drivers
+./install.sh --acceleration intel    # Intel CPU/GPU/NPU through OpenVINO
+./install.sh --acceleration amd      # MIGraphX; depends on ROCm, glibc, and GPU support
+```
 
 ---
 
 ## Installation
 
-Enter the project directory:
+### Install from source
+
+If a package for your distribution is not available on the [Releases page](https://github.com/AS-Offical/HaramMute-Linux/releases), clone the source and run the installer:
 
 ```bash
-cd ~/harammute-linux
+git clone https://github.com/AS-Offical/HaramMute-Linux.git
+cd HaramMute-Linux
+./install.sh --acceleration cpu
 ```
 
-Create a Python virtual environment:
+The installer requests administrator privileges only for system dependencies, then prepares Python, the application launcher, and login autostart. PyTorch and audio-separation dependencies require several GB of disk space and an internet connection.
+
+Use `HARAMMUTE_SKIP_SYSTEM_DEPS=1` if system dependencies are already installed. Python dependencies require several GB of disk space.
+
+The installer recognizes Debian, Fedora, Arch, openSUSE, and Gentoo, then checks FFmpeg, GTK3, PyGObject, and either Ayatana AppIndicator or compatible AppIndicator3 before continuing. For other distributions, install `ffmpeg`, `ffprobe`, `curl`, GTK3, PyGObject, and one of the AppIndicator providers, then run with `HARAMMUTE_SKIP_SYSTEM_DEPS=1`. The user service runs the tray and local server together; if the tray exits, the server exits with it. Showing the icon also requires a desktop panel that supports AppIndicator/SNI. The pinned PyTorch and ONNX Runtime stack requires a glibc-based Linux distribution; Alpine/musl is not supported by these pinned dependencies.
+
+### Install a packaged release
+
+Download the package for your distribution from the [Releases page](https://github.com/AS-Offical/HaramMute-Linux/releases), then use the matching installation command below.
+
+To build the x86_64 Debian package and AppImage after preparing the managed Python environment, run:
 
 ```bash
-python3 -m venv venv
+./install.sh --managed-python --acceleration cpu
+APPIMAGETOOL=/path/to/appimagetool.AppImage \
+LINUXDEPLOY=/path/to/linuxdeploy.AppImage ./packaging/build-linux-packages.sh
 ```
 
-Install the CPU build of PyTorch:
+AppImage builds require `linuxdeploy` and `appimagetool` and should use the oldest targeted glibc baseline. The Debian package can be built without AppImage tools; the builder skips AppImage if they are unavailable. Packages include standalone Python 3.12, Python dependencies, and Deno. The Debian package depends on distro FFmpeg and tray libraries. The AppImage bundles FFmpeg and its shared libraries, but requires host GTK3, PyGObject, and either Ayatana AppIndicator or compatible AppIndicator3; it exits with an error when those bindings are missing rather than running without a tray.
+
+To build native Arch or Fedora/openSUSE packages on their respective build systems:
 
 ```bash
-venv/bin/pip install torch==2.4.1 torchvision==0.19.1 \
-    --index-url https://download.pytorch.org/whl/cpu
+./packaging/build-native-packages.sh
 ```
 
-Install the remaining dependencies:
+`makepkg` creates an Arch package and `rpmbuild` creates an RPM when available. Build native packages on the target distro family. The AppImage is the fallback for other glibc distributions, but the current builder targets x86_64 and does not cover Alpine/musl or every CPU architecture. CPU is the default. GPU acceleration can be selected before building, subject to compatible host drivers and CUDA/ROCm libraries.
+
+Install a generated Debian package with:
 
 ```bash
-venv/bin/pip install -r requirements.txt
+sudo apt install ./dist/harammute-linux_*_amd64.deb
 ```
 
-The virtual environment requires approximately 1.5 GB of disk space.
+Install native packages on other distributions:
+
+```bash
+sudo pacman -U ./dist/harammute-linux-*.pkg.tar.zst  # Arch and derivatives
+sudo dnf install ./dist/harammute-linux-*.rpm         # Fedora/RHEL
+sudo zypper install ./dist/harammute-linux-*.rpm      # openSUSE
+```
+
+To run the AppImage, mark it executable and launch it:
+
+```bash
+chmod +x ./dist/HaramMute-*-x86_64.AppImage
+./dist/HaramMute-*-x86_64.AppImage
+```
+
+Native packages run the tray and server as one user service. Enable them together with:
+
+```bash
+systemctl --user enable --now harammute
+```
 
 ---
 
 ## Running
 
-### Start the Server
+### Start HaramMute and its Tray
 
 ```bash
 ./harammute
 ```
 
-The server runs by default at:
+The command starts the tray and its supervised server. The server listens by default at:
 
 ```text
 http://127.0.0.1:8765
 ```
 
-To use a custom port:
+For testing with a custom port:
 
 ```bash
 ./harammute --port 8901
@@ -448,12 +532,9 @@ To use a custom port:
 
 ## Running with systemd
 
-To run HaramMute as a persistent user service:
+After installation, the user service keeps the tray and server in one lifecycle:
 
 ```bash
-cp harammute.service ~/.config/systemd/user/
-
-systemctl --user daemon-reload
 systemctl --user enable --now harammute
 ```
 
@@ -467,10 +548,10 @@ journalctl --user -u harammute -f
 
 ## Tray Launcher
 
-Start the tray icon with:
+The installer adds the tray to the application menu and login autostart. Start it manually with:
 
 ```bash
-python3 tray_launcher.py
+~/.local/bin/harammute-tray
 ```
 
 The system package below is required:
@@ -479,22 +560,15 @@ The system package below is required:
 gir1.2-ayatanaappindicator3-0.1
 ```
 
-The tray launcher uses AppIndicator / SNI and can therefore appear in desktop environments that support these technologies, including XFCE and GNOME.
+The tray launcher uses AppIndicator / SNI and can therefore appear in desktop environments whose panels support these technologies, including XFCE and GNOME. On Hyprland, configure a status-notifier tray module in the panel (for example Waybar); running the tray process alone cannot display an icon without a host panel.
 
-If a server is already running, the tray launcher reuses the existing server instead of spawning a duplicate instance.
-
-### Start Automatically at Login
-
-```bash
-mkdir -p ~/.config/autostart
-cp harammute-tray.desktop ~/.config/autostart/
-```
+The tray verifies the server's `/health` endpoint before reuse and writes startup errors to `~/.local/share/HaramMute/logs/server.log`. Long jobs expose ready chunks progressively and provide a full `vocals.mp3` when processing finishes.
 
 ---
 
 ## Desktop Entry
 
-To add HaramMute to the desktop application menu:
+The installer adds HaramMute to the desktop application menu and configures the paired tray/server user service to start at login. Rerun `./install.sh` after moving the project folder.
 
 ```bash
 mkdir -p ~/.local/share/applications
@@ -513,7 +587,7 @@ http://127.0.0.1:8765
 
 The server exposes the same API expected by the Windows version.
 
-Job authentication is intentionally bypassed in local mode because the server runs locally on the user's machine.
+Job authentication is intentionally bypassed in local mode. The launcher therefore binds only to loopback, and CORS accepts browser-extension origins only.
 
 ---
 
@@ -523,9 +597,17 @@ The following environment variables can be used to configure the server:
 
 | Variable | Default | Description |
 |---|---|---|
-| `HARAMMUTE_DATA_DIR` | `~/.local/share/HaramMute` | Project data directory |
+| `MUSIC_REMOVER_DATA_DIR` or `HARAMMUTE_DATA_DIR` | `~/.local/share/HaramMute` when using the launcher | Project data directory |
 | `MUSIC_REMOVER_CHUNK_THRESHOLD` | `120` | Audio duration threshold in seconds before splitting into 60-second chunks |
 | `MUSIC_REMOVER_FORCE_CPU` | unset | Set to `true` to force CPU processing |
+| `MUSIC_REMOVER_COOKIES_FILE` | unset | Netscape-format yt-dlp cookies file |
+| `MUSIC_REMOVER_BROWSER_FOR_COOKIES` | auto-detected | Browser used to read cookies |
+| `MUSIC_REMOVER_SKIP_BROWSER_COOKIES` | `false` | Disable browser-cookie attempts |
+| `MUSIC_REMOVER_DENO_BINARY` | `deno` | Deno path for yt-dlp JavaScript support |
+| `MUSIC_REMOVER_YT_DLP_BINARY` | `yt-dlp` | yt-dlp executable path |
+| `MUSIC_REMOVER_FFMPEG_BINARY` | `ffmpeg` | FFmpeg executable path |
+| `MUSIC_REMOVER_DOWNLOAD_DELAY` | `5` seconds | Minimum interval between media download attempts |
+| Maximum media duration | `90` minutes | Checked before download when metadata exists, otherwise after probing |
 | `MUSIC_REMOVER_MODEL_NAME` | `UVR-MDX-NET-Voc_FT.onnx` | Vocal-separation model |
 | `MUSIC_REMOVER_ENCODING_QUALITY` | `4` | MP3 VBR quality, where `0` is highest quality and `9` is fastest encoding |
 | `HARAMMUTE_TELEMETRY_ENABLED` | disabled | Optional PostHog telemetry |
@@ -566,16 +648,7 @@ Encoding: VBR
 
 ## Technical Notes
 
-The following files are unmodified upstream sources:
-
-```text
-app/main.py
-schemas.py
-limits.py
-config.py
-```
-
-The following modules were rebuilt to provide the local Linux processing pipeline:
+The Linux-specific local processing modules are:
 
 ```text
 app/jobs.py
@@ -591,15 +664,11 @@ The PostHog key remains only inside the optional telemetry module. No telemetry 
 
 ### ONNX Model
 
-The bundled model is located at:
+The large model file is excluded from Git, so it is not included in the source archive. On the first separation job, `audio-separator` downloads `UVR-MDX-NET-Voc_FT.onnx` if it is not already cached. An internet connection and additional disk space are required. Model metadata is tracked in the repository, and any model file already available is copied into HaramMute's data cache before processing.
 
-```text
-assets/model_cache/audio-separator/
-```
+### Automated checks
 
-It is seeded into the HaramMute data directory on first run.
-
-No additional model download is required during normal operation.
+GitHub Actions checks source and shell syntax, desktop and systemd metadata, package metadata, and GTK/AppIndicator prerequisites inside Debian, Fedora, Arch, and openSUSE containers. These checks do not emulate a desktop panel or replace a final packaged-app smoke check.
 
 ---
 

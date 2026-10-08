@@ -1,26 +1,9 @@
 #!/usr/bin/env bash
-# HaramMute Linux launcher (console mode)
+# Public entry point: keep the tray and local server in the same lifecycle.
 set -euo pipefail
 
-APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DATA_DIR="${HARAMMUTE_DATA_DIR:-$HOME/.local/share/HaramMute}"
-
-HOST="127.0.0.1"
-PORT="8765"
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        --host) HOST="$2"; shift 2 ;;
-        --port) PORT="$2"; shift 2 ;;
-        *) echo "Unknown option: $1" >&2; exit 1 ;;
-    esac
-done
-
-export MUSIC_REMOVER_LOCAL_MODE=true
-export MUSIC_REMOVER_DATA_DIR="$DATA_DIR"
+APP_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+APP_DIR="$(cd "$(dirname "$APP_PATH")" && pwd)"
 export HARAMMUTE_VERSION="${HARAMMUTE_VERSION:-1.0.18-linux}"
-export PYTHONIOENCODING=utf-8
-mkdir -p "$DATA_DIR"
 
-cd "$APP_DIR"
-exec "$APP_DIR/venv/bin/python" -m uvicorn app.main:app \
-    --host "$HOST" --port "$PORT" --no-access-log
+exec "$APP_DIR/tray_launcher.py" "$@"

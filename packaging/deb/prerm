@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+if [ "$1" = remove ] || [ "$1" = deconfigure ]; then
+    rm -f /usr/bin/harammute /usr/bin/harammute-open /usr/bin/harammute-tray
+    rm -f /usr/share/applications/harammute.desktop
+    rm -f /usr/share/icons/hicolor/256x256/apps/harammute.png
+    rm -f /usr/lib/systemd/user/harammute.service
+fi
+if command -v systemctl >/dev/null 2>&1; then systemctl daemon-reload || true; fi
+exit 0
