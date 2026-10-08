@@ -97,6 +97,7 @@ if [[ -n "$APPIMAGETOOL" && -x "$APPIMAGETOOL" && -n "$LINUXDEPLOY" && -x "$LINU
             exit 1
         fi
         # Build on the oldest supported glibc baseline; GPU drivers remain host-provided.
+        LD_LIBRARY_PATH="$APP_ROOT/python-packages/torch/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
         "$LINUXDEPLOY" --appdir "$APPDIR" \
             --executable "$APP_ROOT/bin/ffmpeg" \
             --executable "$APP_ROOT/bin/ffprobe"

@@ -6,11 +6,12 @@ Release:        3%{?dist}
 %global debug_package %{nil}
 # Python wheels bundle libraries with hash-suffixed SONAMEs under the app tree;
 # RPM cannot resolve those SONAMEs by package name although the files ship here.
-%define __requires_exclude ^lib.*-[0-9a-f]{8}.*$
+# Libraries under the app tree are shipped by this package and are loaded
+# through the bundled runtime's library paths, not distro package names.
+%define __requires_exclude_from ^/opt/harammute-linux/.*$
 Summary:        Local vocal separation server for the HaramMute browser extension
 License:        MIT
 BuildArch:      x86_64
-Requires:       ffmpeg
 Requires:       curl
 Requires:       xdg-utils
 Requires:       python3-gobject
@@ -20,9 +21,9 @@ Requires:       typelib-1_0-Gtk-3_0
 Requires:       typelib-1_0-AppIndicator3-0_1
 Requires:       libgomp1
 %else
+Requires:       ffmpeg-free
 Requires:       gtk3
 Requires:       libayatana-appindicator-gtk3
-Requires:       ffmpeg-free
 Requires:       libgomp
 %endif
 Source0:        harammute-linux.tar.gz
