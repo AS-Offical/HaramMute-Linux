@@ -1,126 +1,68 @@
-# Contributing to HaramMute Linux
+# المساهمة في HaramMute Linux
 
-First of all, thank you for considering contributing! This project is a voluntary port of the HaramMute application to Linux, and contributions are welcome.
+شكرًا لاهتمامك بالمساهمة. هذا مشروع Linux مستقل ومتوافق مع إضافة HaramMute؛ حافظ على توافق واجهة الخادم المحلية مع الإضافة عند اقتراح تغييرات عليها.
 
-## 📋 Table of Contents
-1. [Code of Conduct](#code-of-conduct)
-2. [Reporting Issues](#reporting-issues)
-3. [Feature Requests](#feature-requests)
-4. [Development Setup](#development-setup)
-5. [Pull Request Process](#pull-request-process)
-6. [License](#license)
+## الإبلاغ عن مشكلة
 
----
+افتح [بلاغًا جديدًا](https://github.com/AS-Offical/HaramMute-Linux/issues) بعد البحث عن بلاغ مشابه. أرفق:
 
-## 🛠️ Code of Conduct
+- التوزيعة وإصدارها وبيئة سطح المكتب.
+- معمارية الجهاز ومعالج الرسوميات إن وجدت.
+- خطوات إعادة المشكلة ورسالتها كاملة.
+- إصدار HaramMute وطريقة تثبيته.
+- السجل ذي الصلة. لخدمة systemd استخدم `journalctl --user -u harammute -n 200 --no-pager`.
 
-Be respectful and inclusive. This is a community-driven project, and everyone is expected to communicate politely.
+لا ترفق ملفات cookies أو رموز دخول أو ملفات صوت خاصة.
 
----
+## بيئة التطوير
 
-## 🐛 Reporting Issues
+الإصدار العام الحالي يوفر حزم x86_64 لـ Debian/Ubuntu وFedora 44 وopenSUSE Tumbleweed وArch. فحوص CI تتحقق من ملفات المصدر والبيانات الوصفية واعتماديات Tray في هذه العائلات، لكنها لا تختبر كل توزيعة أو جلسة رسومية. يلزم Python 3.10–3.12 وFFmpeg للتطوير؛ يمكن للمثبت تجهيز Python المدار واعتماديات التطبيق.
 
-If you find a bug or unexpected behavior:
-
-- **Search first** – check if the issue already exists in the [GitHub Issues](https://github.com/AbdullahSalemOffical/HaramMute-Linux/issues) tab.
-- **Provide a clear title** – e.g., "CPU SIGILL on IvyBridge during vocal separation".
-- **Steps to reproduce** – describe the exact actions that trigger the issue.
-- **Environment details** –
-  - OS / Distro (e.g., XFCE on Ubuntu 22.04)
-  - CPU model (e.g., Intel IvyBridge)
-  - Python version (`python3 --version`)
-  - Output of `ffmpeg -version` and `python3 -c "import torch; print(torch.__version)"`
-- **Logs** – attach relevant log excerpts (journalctl for systemd, or terminal output).
-
----
-
-## ✨ Feature Requests
-
- Ideas welcome! Use the [GitHub Discussions](https://github.com/AbdullahSalemOffical/HaramMute-Linux/discussions) (or open an issue with the label `enhancement`) to:
-- Suggest new features (e.g., GUI, Docker support, batch processing).
-- Vote on existing proposals.
-- Describe the use case / why the feature matters.
-
----
-
-## 🛠️ Development Setup
-
-If you want to work on the code locally:
-
-### Prerequisites
-- Linux (tested on XFCE / Ubuntu-based, IvyBridge CPU, 3 cores, 6.7 GB RAM).
-- `ffmpeg` and `ffprobe` on `PATH`.
-- Python 3.10–3.12.
-
-### 1. Fork & clone
 ```bash
-git fork https://github.com/AbdullahSalemOffical/HaramMute-Linux.git
-git clone https://github.com/YourUsername/HaramMute-Linux.git
+git clone https://github.com/AS-Offical/HaramMute-Linux.git
 cd HaramMute-Linux
+./install.sh --acceleration cpu
 ```
 
-### 2. Create a virtual environment
+لتشغيل واجهة Tray والخادم محليًا:
+
 ```bash
-python3 -m venv venv
-source venv/bin/activate   # On Windows: venv\Scripts\activate
+./harammute
 ```
 
-### 3. Install dependencies
+عنوان API الافتراضي هو `http://127.0.0.1:8765`. لا تغيّر المسار أو صيغة الاستجابات التي تعتمد عليها إضافة المتصفح دون تحديث متوافق معها.
+
+## بناء الحزم
+
+يتطلب بناء `.deb` وAppImage تجهيز بيئة المشروع وأدوات AppImage المذكورة في سكربت البناء:
+
 ```bash
-pip install --upgrade pip
-pip install "torch==2.4.1+cpu" "torchvision==0.19.1+cpu" --index-url https://download.pytorch.org/whl/cpu
-pip install -r requirements.txt
+./install.sh --managed-python --acceleration cpu
 ```
 
-### 4. Run the server locally
 ```bash
-./harammute               # console mode
-# or
-python3 tray_launcher.py  # system‑tray mode (needs X11 / DISPLAY)
+APPIMAGETOOL=/path/to/appimagetool.AppImage LINUXDEPLOY=/path/to/linuxdeploy.AppImage ./packaging/build-linux-packages.sh
 ```
 
-### 5. Test the pipeline
-- Submit a short YouTube video (e.g., `jNQXAC9IVRw` “Me at the zoo”).
-- Verify that `GET /jobs/{id}/stems/vocals` returns a valid MP3.
-- Check that `processing_stats` contains reasonable timings.
+ابنِ حزمة Arch أو RPM على التوزيعة المستهدفة:
 
----
+```bash
+./packaging/build-native-packages.sh
+```
 
-## 🌿 Pull Request Process
+تستخدم الحزم العامة الحالية CPU وتستهدف x86_64. بناء GPU يحتاج اعتماديات النظام المناسبة، ولا يعني أن ملف الحزمة الناتج سيعمل على أجهزة لا تملك التعريفات والمكتبات المطابقة. راجع ملفات `packaging/` قبل تغيير مساراتها؛ سكربتات البناء تعتمد على البنية الحالية.
 
-1. **Branch from `main`** – create a new branch for your change:
-   ```bash
-   git checkout -b feature/short-description
-   # or
-   git checkout -b bugfix/issue-number
-   ```
+## التحقق وطلبات السحب
 
-2. **Make your changes** – follow the existing code style (PEP 8 for Python, minimal comments, sensible variable names).
+تشغّل GitHub Actions فحوص صياغة shell وPython، والتحقق من ملفات سطح المكتب وخدمات systemd وبيانات الحزم، وفحص اعتماديات GTK/AppIndicator في حاويات Debian وFedora وArch وopenSUSE. مسار بناء الإصدار يثبت الحزم ويفحص استجابة `/health`، لكنه لا يجري فصلًا كاملًا لصوت ولا يتحقق بصريًا من Tray.
 
-3. **Test your changes** – run the existing test scenarios (download + separation of a short clip) and ensure no regressions.
+قبل فتح طلب السحب:
 
-4. **Commit with a clear message**
-   ```bash
-   git commit -m "fix: resolve SIGILL on old‑CPU separation (onnxruntime 1.23)"
-   ```
+1. أنشئ فرعًا واضح الاسم.
+2. اشرح المشكلة والتغيير وتأثيره على إضافة المتصفح والتوزيعات.
+3. أرفق خطوات تحقق مناسبة، واذكر ما لم تتمكن من التحقق منه.
+4. افتح [طلب سحب](https://github.com/AS-Offical/HaramMute-Linux/compare) واربط البلاغ المرتبط إن وجد.
 
-5. **Push to your fork**
-   ```bash
-   git push origin feature/short-description
-   ```
+## السلوك والتراخيص
 
-6. **Open a Pull Request** on GitHub:
-   - Fill the PR template (if one exists).
-   - Reference any related issues: `Fixes #123`.
-   - Describe what you changed and why.
-   - Attach screenshots or log excerpts if helpful.
-
-7. **Respond to review** – maintainers may ask for adjustments. Once approved, the PR will be merged.
-
----
-
-## 📜 License
-
-By contributing, you agree that your contributions will be released under the [MIT License](LICENSE) that covers the project.
-
-Thank you for helping make HaramMute Linux better! 🎉
+كن محترمًا وواضحًا في النقاش. المساهمات المقدمة للمشروع تخضع لترخيص [MIT](LICENSE).
