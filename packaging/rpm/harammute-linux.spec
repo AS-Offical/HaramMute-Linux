@@ -44,7 +44,7 @@ install -D -m 0644 %{SOURCE3} %{buildroot}/usr/share/applications/harammute.desk
 install -D -m 0644 %{SOURCE4} %{buildroot}/usr/lib/systemd/user/harammute.service
 install -D -m 0644 %{buildroot}/opt/harammute-linux/icon.png \
     %{buildroot}/usr/share/icons/hicolor/256x256/apps/harammute.png
-find %{buildroot}/opt/harammute-linux -type f -printf '/opt/harammute-linux/%P\n' \
+find %{buildroot}/opt/harammute-linux -type f -printf '/opt/harammute-linux/%%P\n' \
     > %{_builddir}/harammute-files.list
 
 %post
