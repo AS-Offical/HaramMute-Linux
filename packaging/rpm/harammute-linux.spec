@@ -1,6 +1,6 @@
 Name:           harammute-linux
 Version:        1.0.18
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Local vocal separation server for the HaramMute browser extension
 License:        MIT
 BuildArch:      x86_64
@@ -44,16 +44,14 @@ install -D -m 0644 %{SOURCE3} %{buildroot}/usr/share/applications/harammute.desk
 install -D -m 0644 %{SOURCE4} %{buildroot}/usr/lib/systemd/user/harammute.service
 install -D -m 0644 %{buildroot}/opt/harammute-linux/icon.png \
     %{buildroot}/usr/share/icons/hicolor/256x256/apps/harammute.png
-find %{buildroot}/opt/harammute-linux -type f -printf '/opt/harammute-linux/%%P\n' \
-    > %{_builddir}/harammute-files.list
-
 %post
 systemctl daemon-reload >/dev/null 2>&1 || :
 
 %postun
 systemctl daemon-reload >/dev/null 2>&1 || :
 
-%files -f %{_builddir}/harammute-files.list
+%files
+/opt/harammute-linux
 /usr/bin/harammute
 /usr/bin/harammute-open
 /usr/bin/harammute-tray
@@ -62,5 +60,5 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 /usr/lib/systemd/user/harammute.service
 
 %changelog
-* Thu Oct 08 2026 HaramMute Linux contributors - 1.0.18-2
-- Fix distro dependency declarations and desktop startup.
+* Thu Oct 08 2026 HaramMute Linux contributors - 1.0.18-3
+- Fix RPM package file manifests and bundled Python runtime metadata.

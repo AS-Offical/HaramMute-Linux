@@ -62,7 +62,7 @@ if command -v dpkg-deb >/dev/null 2>&1; then
         echo "Run ./install.sh first so Deno is installed for yt-dlp media support." >&2
         exit 1
     fi
-    sed "s/^Version:.*/Version: $APP_VERSION-2/" \
+    sed "s/^Version:.*/Version: $APP_VERSION-3/" \
         "$ROOT/packaging/deb/control" > "$DEB_ROOT/DEBIAN/control"
     cp "$ROOT/packaging/deb/postinst" "$DEB_ROOT/DEBIAN/postinst"
     cp "$ROOT/packaging/deb/prerm" "$DEB_ROOT/DEBIAN/prerm"

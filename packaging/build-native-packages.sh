@@ -30,6 +30,11 @@ tar -C "$ROOT" \
 cp -a "$PYTHON_BASE/." "$RUNTIME_DIR/python-runtime/"
 cp -a "$ROOT/venv/lib/python3.12/site-packages/." "$RUNTIME_DIR/python-packages/"
 rm -rf "$RUNTIME_DIR/python-runtime/include" "$RUNTIME_DIR/python-runtime/share/doc"
+# These Python source modules are imported as data/code, never executed directly.
+# Clearing package-builder executable bits avoids broken generic Python shebangs
+# in RPM policy checks while leaving the bundled interpreter and launchers intact.
+find "$RUNTIME_DIR/python-runtime" "$RUNTIME_DIR/python-packages" \
+    -type f -name '*.py' -exec chmod a-x {} +
 find "$RUNTIME_DIR" -type d -name __pycache__ -prune -exec rm -rf {} +
 if [[ -x "$HOME/.local/bin/deno" ]]; then
     install -D -m 0755 "$HOME/.local/bin/deno" "$RUNTIME_DIR/bin/deno"

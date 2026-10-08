@@ -1,6 +1,6 @@
 pkgname=harammute-linux
 pkgver=1.0.18
-pkgrel=2
+pkgrel=3
 pkgdesc='Local vocal separation server for the HaramMute browser extension'
 arch=('x86_64')
 options=('!strip')
