@@ -4,6 +4,9 @@ Release:        3%{?dist}
 # The package ships prebuilt Python wheels, so splitting their stripped ELF
 # objects into a debuginfo subpackage is neither possible nor useful.
 %global debug_package %{nil}
+# Python wheels bundle libraries with hash-suffixed SONAMEs under the app tree;
+# RPM cannot resolve those SONAMEs by package name although the files ship here.
+%define __requires_exclude ^lib.*-[0-9a-f]{8}.*$
 Summary:        Local vocal separation server for the HaramMute browser extension
 License:        MIT
 BuildArch:      x86_64
