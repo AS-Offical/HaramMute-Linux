@@ -4,6 +4,10 @@
   <img src="assets/cover.png" alt="HaramMute Linux">
 </p>
 
+[العربية](#العربية) · [English](#english)
+
+## العربية
+
 > **آخر إصدار مستقر:** [v1.0.18-3 والتنزيلات](https://github.com/AS-Offical/HaramMute-Linux/releases/tag/v1.0.18-3) · نزّل الملفات من صفحة الإصدار، وليس من `dist/` المحلي.
 
 نسخة Linux مستقلة من خادم HaramMute المحلي، تعمل مع إضافة المتصفح عبر `http://127.0.0.1:8765`. المشروع غير رسمي ولا يتبع مطوري نسخة Windows.
@@ -139,3 +143,142 @@ CPU هو الخيار الافتراضي والأوسع توافقًا. خيار
 ## الترخيص
 
 المشروع مرخص بموجب [MIT](LICENSE).
+
+
+---
+
+## English
+
+> **Latest stable release:** [v1.0.18-3 downloads](https://github.com/AS-Offical/HaramMute-Linux/releases/tag/v1.0.18-3). Download published assets from Releases; do not use a local `dist/` folder.
+
+HaramMute Linux is an independent local server for the HaramMute browser extension. It connects to the extension at `http://127.0.0.1:8765`. This is an unofficial project and is not affiliated with the original Windows developers.
+
+**You must install the browser extension too; the Linux app alone is not enough.**
+
+- [Firefox add-on](https://addons.mozilla.org/en-US/firefox/addon/harammute/)
+- [Chrome and Brave extension](https://chromewebstore.google.com/detail/harammute-remove-backgrou/bbkbpldbnkoncockinoapcmbiijejgpn?hl=en)
+
+### Quick install
+
+The current release packages target **x86_64** and use CPU inference. Download the package for your distribution and `SHA256SUMS` from the [release page](https://github.com/AS-Offical/HaramMute-Linux/releases/tag/v1.0.18-3) into the same folder, then verify the files:
+
+```bash
+sha256sum -c SHA256SUMS
+```
+
+#### Debian and Ubuntu
+
+```bash
+sudo apt install ./harammute-linux_1.0.18-3_amd64.deb
+```
+
+#### Fedora 44
+
+```bash
+sudo dnf install ./harammute-linux-1.0.18-3.fc44.x86_64.rpm
+```
+
+#### openSUSE Tumbleweed
+
+The RPM is unsigned. Verify its SHA256, then install it with:
+
+```bash
+sudo zypper --no-gpg-checks install ./harammute-linux-1.0.18-3.x86_64.rpm
+```
+
+#### Arch Linux
+
+```bash
+sudo pacman -U ./harammute-linux-1.0.18-3-x86_64.pkg.tar.zst
+```
+
+#### AppImage
+
+The AppImage requires a glibc-based system and host GTK3, PyGObject, and AppIndicator/SNI support. ARM and Alpine/musl are not supported by this release.
+
+```bash
+chmod +x ./HaramMute-1.0.18-x86_64.AppImage
+./HaramMute-1.0.18-x86_64.AppImage
+```
+
+### First launch
+
+After installing a native package, launch **HaramMute** from your applications menu or run:
+
+```bash
+harammute-open
+```
+
+This starts the tray and local server together, then opens the connection page. Keep HaramMute running while using the browser extension. The tray icon appears only in desktop panels that support AppIndicator/SNI. To start the service automatically when you log in:
+
+```bash
+systemctl --user enable --now harammute
+```
+
+The first separation downloads the ONNX model and requires internet access and additional disk space. Processing time and CPU use depend on the audio length and your hardware.
+
+### Compatibility and validation
+
+| Package | Release build/check environment |
+|---|---|
+| `.deb` | Built on Ubuntu 22.04; installation and service startup checked |
+| Fedora `.rpm` | Fedora 44; installation and service startup checked |
+| openSUSE `.rpm` | Tumbleweed; installation and service startup checked |
+| Arch `.pkg.tar.zst` | Arch Linux; installation and service startup checked |
+| AppImage | Extracted and its server `/health` endpoint checked |
+
+These checks confirm package installation and server health. They do not test a complete audio-separation job or tray visibility in every graphical session. Other glibc-based distributions may work, but have not all been verified. This release does not support ARM or Alpine/musl. All published packages use CPU; GPU options available when building from source are not included in the release packages.
+
+### Install from source
+
+Use this option if there is no suitable package for your distribution. The installer prepares Python and project dependencies, which may require several gigabytes of downloads and disk space.
+
+```bash
+git clone https://github.com/AS-Offical/HaramMute-Linux.git
+cd HaramMute-Linux
+./install.sh --acceleration cpu
+```
+
+The installer has automatic dependency recipes for Debian/Ubuntu, Fedora, Arch and its derivatives, openSUSE, and Gentoo. On other distributions, install `ffmpeg`, `ffprobe`, `curl`, GTK3, PyGObject, and AppIndicator/SNI, then run with `HARAMMUTE_SKIP_SYSTEM_DEPS=1`. A glibc-based system is required; Alpine is currently unsupported because of the PyTorch and ONNX Runtime dependencies.
+
+#### Select a processing provider when installing from source
+
+CPU is the default and most compatible option. GPU options depend on compatible hardware, drivers, and system libraries, and are not included in the prebuilt release packages:
+
+```bash
+./install.sh --acceleration cpu
+```
+
+```bash
+./install.sh --acceleration nvidia
+```
+
+```bash
+./install.sh --acceleration intel
+```
+
+```bash
+./install.sh --acceleration amd
+```
+
+### Useful information
+
+- Local server: `http://127.0.0.1:8765`, the address expected by the browser extension.
+- App data and model: `~/.local/share/HaramMute/`.
+- systemd user service logs: `journalctl --user -u harammute -f`.
+- If the extension cannot connect, make sure HaramMute and its tray are running, then check the service log.
+- RPM packages in this release are unsigned. `SHA256SUMS` detects download corruption but does not verify publisher identity.
+
+### Contributing and repository layout
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and contribution guidelines. Package files live in `packaging/`; keep their paths intact because the build scripts depend on them. The local `dist/` directory is ignored by Git and is not the source of public release downloads.
+
+- `app/`: API, jobs, and audio processing.
+- `packaging/`: Debian, RPM, Arch, and AppImage build files.
+- `assets/`: images and model metadata; the large model is downloaded when needed and is not stored in Git.
+- `install.sh`, `harammute*`, and `tray_launcher.py`: installer, launchers, and service integration.
+- `.github/workflows/`: CI checks and release package builds.
+
+### License
+
+This project is licensed under the [MIT License](LICENSE).
