@@ -125,7 +125,7 @@ jobs:
               useradd --create-home builder
               cp -a /src /home/builder/HaramMute-Linux
               chown -R builder:builder /home/builder/HaramMute-Linux
-              su - builder -c "cd /home/builder/HaramMute-Linux && env HARAMMUTE_SKIP_SYSTEM_DEPS=1 ./install.sh --managed-python --acceleration cpu && ./packaging/build-native-packages.sh /home/builder/HaramMute-Linux/dist"
+              su - builder -c "cd /home/builder/HaramMute-Linux && env HARAMMUTE_SKIP_SYSTEM_DEPS=1 ./install.sh --managed-python --acceleration cpu && QA_RPATHS=2 ./packaging/build-native-packages.sh /home/builder/HaramMute-Linux/dist"
               case "$(. /etc/os-release; echo "$ID")" in
                 arch) pacman -U --noconfirm /home/builder/HaramMute-Linux/dist/*.pkg.tar.zst ;;
                 fedora) dnf install -y /home/builder/HaramMute-Linux/dist/*.rpm ;;
