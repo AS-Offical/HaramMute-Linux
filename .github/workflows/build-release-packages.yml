@@ -1,0 +1,177 @@
+name: Build release packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing published release tag (for example v1.0.18-2)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deb-and-appimage:
+    name: Debian and AppImage
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+      - name: Install host tray and media prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ca-certificates curl ffmpeg gir1.2-gtk-3.0 \
+            gir1.2-ayatanaappindicator3-0.1 libfuse2 python3-gi xdg-utils
+      - name: Prepare Python runtime and build Debian/AppImage
+        run: |
+          set -euo pipefail
+          HARAMMUTE_SKIP_SYSTEM_DEPS=1 ./install.sh --managed-python --acceleration cpu
+          wget -qO "$RUNNER_TEMP/linuxdeploy.AppImage" \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          wget -qO "$RUNNER_TEMP/appimagetool.AppImage" \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x "$RUNNER_TEMP/linuxdeploy.AppImage" "$RUNNER_TEMP/appimagetool.AppImage"
+          APPIMAGETOOL="$RUNNER_TEMP/appimagetool.AppImage" \
+          LINUXDEPLOY="$RUNNER_TEMP/linuxdeploy.AppImage" \
+          APPIMAGE_EXTRACT_AND_RUN=1 \
+            ./packaging/build-linux-packages.sh "$RUNNER_TEMP/packages"
+      - name: Smoke-test installed Debian package and extracted AppImage server
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y "$RUNNER_TEMP"/packages/harammute-linux_*_amd64.deb
+          smoke_server() {
+            local server="$1" data_dir="$2" log_file="$3" port=18765 pid
+            mkdir -p "$data_dir"
+            HARAMMUTE_DATA_DIR="$data_dir" "$server" --port "$port" >"$log_file" 2>&1 &
+            pid=$!
+            trap 'kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true' RETURN
+            for _ in $(seq 1 60); do
+              if curl --silent --fail --max-time 1 "http://127.0.0.1:$port/health" |
+                python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("status")=="ok" and d.get("service")=="harammute"'; then
+                return 0
+              fi
+              if ! kill -0 "$pid" 2>/dev/null; then cat "$log_file"; return 1; fi
+              sleep 0.5
+            done
+            cat "$log_file"
+            return 1
+          }
+          smoke_server /opt/harammute-linux/harammute-server \
+            "$RUNNER_TEMP/deb-smoke-data" "$RUNNER_TEMP/deb-smoke.log"
+          appimage=$(find "$RUNNER_TEMP/packages" -maxdepth 1 -type f -name '*.AppImage' -print -quit)
+          test -n "$appimage"
+          cd "$RUNNER_TEMP"
+          APPIMAGE_EXTRACT_AND_RUN=1 "$appimage" --appimage-extract >/dev/null
+          smoke_server "$RUNNER_TEMP/squashfs-root/usr/lib/harammute-linux/harammute-server" \
+            "$RUNNER_TEMP/appimage-smoke-data" "$RUNNER_TEMP/appimage-smoke.log"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deb-appimage-x86_64
+          path: ${{ runner.temp }}/packages/*
+          if-no-files-found: error
+          retention-days: 3
+
+  native-packages:
+    name: ${{ matrix.distro }} package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: Arch
+            image: archlinux:latest
+            system_deps: pacman -Syu --noconfirm --needed base-devel ca-certificates curl ffmpeg gtk3 libayatana-appindicator python-gobject xdg-utils
+          - distro: Fedora
+            image: fedora:latest
+            system_deps: dnf install -y gcc gcc-c++ make rpm-build bash ca-certificates curl ffmpeg-free gtk3 libayatana-appindicator-gtk3 python3-gobject xdg-utils
+          - distro: openSUSE
+            image: opensuse/tumbleweed:latest
+            system_deps: zypper --non-interactive refresh && zypper --non-interactive install gcc gcc-c++ make rpm-build bash ca-certificates curl ffmpeg gtk3 typelib-1_0-AppIndicator3-0_1 typelib-1_0-Gtk-3_0 python3-gobject xdg-utils
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+      - name: Build native package in target distro container
+        env:
+          IMAGE: ${{ matrix.image }}
+          SYSTEM_DEPS: ${{ matrix.system_deps }}
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/src" \
+            -e SYSTEM_DEPS="$SYSTEM_DEPS" \
+            "$IMAGE" bash -ec '
+              server_smoke() {
+                local data_dir log_file port=18765 pid
+                data_dir=$(mktemp -d)
+                log_file=$(mktemp)
+                HARAMMUTE_DATA_DIR="$data_dir" /opt/harammute-linux/harammute-server --port "$port" >"$log_file" 2>&1 &
+                pid=$!
+                trap '\''kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; rm -rf "$data_dir" "$log_file"'\'' RETURN
+                for _ in $(seq 1 60); do
+                  if curl --silent --fail --max-time 1 "http://127.0.0.1:$port/health" | python3 -c '\''import json,sys; d=json.load(sys.stdin); assert d.get("status")=="ok" and d.get("service")=="harammute"'\''; then return 0; fi
+                  if ! kill -0 "$pid" 2>/dev/null; then cat "$log_file"; return 1; fi
+                  sleep 0.5
+                done
+                cat "$log_file"
+                return 1
+              }
+              eval "$SYSTEM_DEPS"
+              useradd --create-home builder
+              chown -R builder:builder /src
+              su - builder -c "cd /src && env HARAMMUTE_SKIP_SYSTEM_DEPS=1 ./install.sh --managed-python --acceleration cpu && ./packaging/build-native-packages.sh /src/dist"
+              case "$(. /etc/os-release; echo "$ID")" in
+                arch) pacman -U --noconfirm /src/dist/*.pkg.tar.zst ;;
+                fedora) dnf install -y /src/dist/*.rpm ;;
+                opensuse*) zypper --non-interactive install /src/dist/*.rpm ;;
+                *) echo "Unexpected build distro: $ID" >&2; exit 1 ;;
+              esac
+              server_smoke
+              chmod -R a+rX /src/dist
+            '
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.distro }}-x86_64
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 3
+
+  attach-to-release:
+    name: Attach built packages to GitHub Release
+    runs-on: ubuntu-24.04
+    needs: [deb-and-appimage, native-packages]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Install package inspection tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libarchive-tools rpm zstd
+      - name: Verify release asset set
+        run: |
+          set -euo pipefail
+          find release-assets -maxdepth 1 -type f -printf '%f\n' | sort
+          mapfile -t debs < <(find release-assets -maxdepth 1 -type f -name '*.deb')
+          mapfile -t rpms < <(find release-assets -maxdepth 1 -type f -name '*.rpm')
+          mapfile -t arch_packages < <(find release-assets -maxdepth 1 -type f -name '*.pkg.tar.zst')
+          mapfile -t appimages < <(find release-assets -maxdepth 1 -type f -name '*.AppImage')
+          ((${#debs[@]} >= 1 && ${#rpms[@]} >= 2 && ${#arch_packages[@]} >= 1 && ${#appimages[@]} >= 1))
+          for package in "${debs[@]}"; do dpkg-deb --info "$package" >/dev/null; done
+          for package in "${rpms[@]}"; do rpm -qp "$package" >/dev/null; done
+          for package in "${arch_packages[@]}"; do zstd -t "$package"; bsdtar -tf "$package" >/dev/null; done
+          for package in "${appimages[@]}"; do file "$package" | grep -q 'ELF 64-bit'; done
+          (cd release-assets && sha256sum * > SHA256SUMS)
+      - name: Upload artifacts to the published release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: gh release upload "$RELEASE_TAG" release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
