@@ -35,6 +35,8 @@ rm -rf "$RUNTIME_DIR/python-runtime/include" "$RUNTIME_DIR/python-runtime/share/
 # in RPM policy checks while leaving the bundled interpreter and launchers intact.
 find "$RUNTIME_DIR/python-runtime" "$RUNTIME_DIR/python-packages" \
     -type f -name '*.py' -exec chmod a-x {} +
+find "$RUNTIME_DIR/python-packages" -type d \
+    \( -name test -o -name tests -o -name testing \) -prune -exec rm -rf {} +
 find "$RUNTIME_DIR" -type d -name __pycache__ -prune -exec rm -rf {} +
 if [[ -x "$HOME/.local/bin/deno" ]]; then
     install -D -m 0755 "$HOME/.local/bin/deno" "$RUNTIME_DIR/bin/deno"

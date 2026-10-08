@@ -1,6 +1,9 @@
 Name:           harammute-linux
 Version:        1.0.18
 Release:        3%{?dist}
+# The package ships prebuilt Python wheels, so splitting their stripped ELF
+# objects into a debuginfo subpackage is neither possible nor useful.
+%global debug_package %{nil}
 Summary:        Local vocal separation server for the HaramMute browser extension
 License:        MIT
 BuildArch:      x86_64
