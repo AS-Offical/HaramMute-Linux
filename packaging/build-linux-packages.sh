@@ -67,7 +67,7 @@ if command -v dpkg-deb >/dev/null 2>&1; then
     cp "$ROOT/packaging/deb/postinst" "$DEB_ROOT/DEBIAN/postinst"
     cp "$ROOT/packaging/deb/prerm" "$DEB_ROOT/DEBIAN/prerm"
     chmod 0755 "$DEB_ROOT/DEBIAN/postinst" "$DEB_ROOT/DEBIAN/prerm"
-    dpkg-deb --root-owner-group --build "$DEB_ROOT" "$OUTPUT_DIR/harammute-linux_${APP_VERSION}-2_amd64.deb"
+    dpkg-deb --root-owner-group --build "$DEB_ROOT" "$OUTPUT_DIR/harammute-linux_${APP_VERSION}-3_amd64.deb"
     BUILT_PACKAGES=1
 else
     echo "dpkg-deb is unavailable; skipping the Debian package."
