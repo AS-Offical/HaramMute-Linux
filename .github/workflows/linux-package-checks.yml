@@ -35,8 +35,14 @@ jobs:
           python -m compileall -q app tray_launcher.py
           desktop-file-validate harammute.desktop packaging/deb/harammute.desktop \
             packaging/arch/harammute.desktop packaging/appimage/harammute.desktop
-          systemd-analyze verify harammute.service packaging/deb/harammute.service \
-            packaging/arch/harammute.service
+          grep -q '^ExecStart=%h/.local/bin/harammute-tray$' harammute.service
+          grep -q '^ExecStart=/usr/bin/harammute-tray$' packaging/deb/harammute.service
+          grep -q '^ExecStart=/usr/bin/harammute-tray$' packaging/arch/harammute.service
+          for unit in harammute.service packaging/deb/harammute.service packaging/arch/harammute.service; do
+            checked_unit="$RUNNER_TEMP/$(echo "$unit" | tr '/' '_')"
+            sed 's|^ExecStart=.*$|ExecStart=/usr/bin/true|' "$unit" > "$checked_unit"
+            systemd-analyze verify "$checked_unit"
+          done
           rpmspec -P packaging/rpm/harammute-linux.spec >/dev/null
           grep -q '^Architecture: amd64$' packaging/deb/control
           grep -q "^arch=('x86_64')$" packaging/arch/PKGBUILD
