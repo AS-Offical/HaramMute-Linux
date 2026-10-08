@@ -24,7 +24,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            ca-certificates curl ffmpeg gir1.2-gtk-3.0 unzip \
+            ca-certificates curl ffmpeg gir1.2-gtk-3.0 libtbb12 unzip \
             gir1.2-ayatanaappindicator3-0.1 libfuse2 python3-gi xdg-utils
       - name: Prepare Python runtime and build Debian/AppImage
         run: |

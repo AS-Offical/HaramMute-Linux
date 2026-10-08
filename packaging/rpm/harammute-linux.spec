@@ -4,6 +4,14 @@ Release:        3%{?dist}
 # The package ships prebuilt Python wheels, so splitting their stripped ELF
 # objects into a debuginfo subpackage is neither possible nor useful.
 %global debug_package %{nil}
+# Fedora's RPM post-install processing strips every bundled ELF object. That
+# modifies the standalone CPython and prebuilt wheels (and breaks the bundled
+# interpreter at runtime), so preserve their upstream binaries verbatim there.
+%if 0%{?fedora}
+%global __brp_strip %{nil}
+%global __brp_strip_static_archive %{nil}
+%global __brp_strip_comment_note %{nil}
+%endif
 # Python wheels bundle libraries with hash-suffixed SONAMEs under the app tree;
 # RPM cannot resolve those SONAMEs by package name although the files ship here.
 # Libraries under the app tree are shipped by this package and are loaded
