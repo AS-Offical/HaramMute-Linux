@@ -81,11 +81,13 @@ models/     Model files
 
 تُنشر الإصدارات والحزم الجاهزة في [GitHub Releases](https://github.com/AS-Offical/HaramMute-Linux/releases). اختر الحزمة المناسبة لتوزيعتك (`.deb` أو `.rpm` أو `.pkg.tar.zst`) أو AppImage، وتأكد من أن الإصدار يذكر دعم `x86_64`. إذا لم تظهر حزمة تثبيت ضمن ملفات الإصدار، استخدم تعليمات البناء من المصدر أدناه؛ لا تستخدم ملفًا قديمًا من مجلد `dist/`.
 
+حزم الإصدار `v1.0.18-3` موجهة إلى Debian/Ubuntu amd64 وFedora 44 وopenSUSE Tumbleweed وArch Linux x86_64. تتضمن هذه الحزم مزود CPU؛ حزم التسريع GPU غير منشورة في هذا الإصدار. AppImage يحتاج glibc وGTK3 وPyGObject وAppIndicator/SNI من النظام، ولا يدعم Alpine/musl أو ARM.
+
 ### تسريع المعالجة
 
 يعمل المشروع باستخدام CPU بشكل افتراضي.
 
-يتعرف التطبيق تلقائيًا على مزودي ONNX Runtime المثبتين: NVIDIA CUDA، وIntel OpenVINO، وAMD MIGraphX، ثم يستخدم CPU تلقائيًا إذا لم يتوفر مزود مناسب. يجب اختيار حزمة التسريع المطابقة لكرت الشاشة وتعريفاته؛ تثبيت الحزمة وحده لا يضيف دعمًا لتعريف أو جهاز غير متوافق.
+في التثبيت من المصدر، يتعرف التطبيق تلقائيًا على مزودي ONNX Runtime المثبتين: NVIDIA CUDA، وIntel OpenVINO، وAMD MIGraphX، ثم يستخدم CPU تلقائيًا إذا لم يتوفر مزود مناسب. حزم الإصدار الجاهزة الحالية تستخدم CPU. يجب اختيار مزود التسريع المطابق لكرت الشاشة وتعريفاته؛ تثبيت الحزمة وحده لا يضيف دعمًا لتعريف أو جهاز غير متوافق.
 
 يدعم مثبت المشروع الاختيارات التالية:
 
@@ -120,7 +122,41 @@ cd HaramMute-Linux
 
 ### تثبيت حزمة إصدار
 
-للحزم الجاهزة، نزّل ملف التوزيعة من [صفحة الإصدارات](https://github.com/AS-Offical/HaramMute-Linux/releases) واتبع أمر التثبيت المقابل أدناه.
+نزّل الحزمة المناسبة من [HaramMute Linux v1.0.18-3](https://github.com/AS-Offical/HaramMute-Linux/releases/tag/v1.0.18-3)، وضعها مع ملف `SHA256SUMS` في المجلد نفسه. تحقق من سلامة التنزيل:
+
+```bash
+sha256sum -c SHA256SUMS
+```
+
+ثبّت الحزمة المناسبة:
+
+```bash
+sudo apt install ./harammute-linux_1.0.18-3_amd64.deb                 # Debian/Ubuntu
+sudo dnf install ./harammute-linux-1.0.18-3.fc44.x86_64.rpm          # Fedora 44
+sudo zypper --no-gpg-checks install ./harammute-linux-1.0.18-3.x86_64.rpm  # openSUSE Tumbleweed
+sudo pacman -U ./harammute-linux-1.0.18-3-x86_64.pkg.tar.zst        # Arch Linux
+```
+
+حزم RPM المنشورة غير موقعة حاليًا؛ لذلك يتطلب تثبيت RPM على openSUSE تجاوز فحص التوقيع. تحقّق من SHA256 قبل التثبيت. قيمة SHA256 تتحقق من سلامة الملف المنزّل، لكنها ليست توقيعًا من ناشر.
+
+بعد التثبيت، شغّل **HaramMute** من قائمة التطبيقات أو نفّذ `harammute-open`؛ يبدأ Tray والخادم المحلي معًا ثم يفتح صفحة الاتصال. لبدء الخدمة تلقائيًا عند تسجيل الدخول:
+
+```bash
+systemctl --user enable --now harammute
+```
+
+لتشغيل AppImage، نزّله من صفحة الإصدار وتحقق منه باستخدام `SHA256SUMS`، ثم نفّذ:
+
+```bash
+chmod +x ./HaramMute-1.0.18-x86_64.AppImage
+./HaramMute-1.0.18-x86_64.AppImage
+```
+
+يتطلب AppImage أيضًا GTK3 وPyGObject وAyatana AppIndicator أو AppIndicator3 من النظام المضيف.
+
+### بناء الحزم من المصدر
+
+التعليمات التالية مخصصة لمن يريد بناء الحزم بنفسه؛ معظم المستخدمين يمكنهم تثبيت ملفات الإصدار الجاهزة أعلاه.
 
 لبناء حزمة Debian وAppImage بمعمارية x86_64 بعد تجهيز Python المستقل والبيئة، استخدم:
 
