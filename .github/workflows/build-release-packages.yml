@@ -129,7 +129,7 @@ jobs:
               case "$(. /etc/os-release; echo "$ID")" in
                 arch) pacman -U --noconfirm /home/builder/HaramMute-Linux/dist/*.pkg.tar.zst ;;
                 fedora) dnf install -y /home/builder/HaramMute-Linux/dist/*.rpm ;;
-                opensuse*) zypper --non-interactive install /home/builder/HaramMute-Linux/dist/*.rpm ;;
+                opensuse*) zypper --non-interactive --no-gpg-checks install /home/builder/HaramMute-Linux/dist/*.rpm ;;
                 *) echo "Unexpected build distro: $ID" >&2; exit 1 ;;
               esac
               server_smoke
