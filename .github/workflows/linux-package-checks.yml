@@ -57,10 +57,10 @@ jobs:
       - name: Validate source and package metadata
         run: |
           set -euo pipefail
-          bash -n install.sh harammute harammute-open harammute-server \
+          bash -n install.sh install-release.sh harammute harammute-open harammute-server \
             packaging/build-linux-packages.sh packaging/build-native-packages.sh \
             packaging/arch/harammute packaging/arch/harammute-tray
-          shellcheck -x install.sh harammute harammute-open harammute-server \
+          shellcheck -x install.sh install-release.sh harammute harammute-open harammute-server \
             packaging/build-linux-packages.sh packaging/build-native-packages.sh \
             packaging/arch/harammute packaging/arch/harammute-tray
           python -m compileall -q app tray_launcher.py

@@ -29,6 +29,22 @@
 
 حزم الإصدار الحالية تستهدف Linux بمعمارية **x86_64** وتستخدم CPU للمعالجة. نزّل ملف الحزمة و`SHA256SUMS` من [الإصدار](https://github.com/AS-Offical/HaramMute-Linux/releases/tag/v1.0.18-3) إلى مجلد واحد، ثم تحقق من سلامة الملفات:
 
+لتنزيل أحدث إصدار واختيار الحزمة حسب التوزيعة وتثبيتها تلقائيًا، استخدم:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AS-Offical/HaramMute-Linux/main/install-release.sh | bash
+```
+
+يتحقق المثبّت من SHA256 قبل التثبيت. يستخدم الحزمة الأصلية على Debian/Ubuntu وFedora 44 وopenSUSE Tumbleweed وArch؛ ويستخدم AppImage على توزيعات glibc الأخرى. سيطلب `sudo` لتثبيت الحزم الأصلية فقط. لا يدعم هذا المسار ARM أو Alpine/musl.
+
+لمعاينة الإصدار والحزمة التي سيختارها دون تنزيلها أو تثبيتها:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AS-Offical/HaramMute-Linux/main/install-release.sh | bash -s -- --dry-run
+```
+
+ولتنزيل الحزمة يدويًا، اتبع الخطوات التالية:
+
 ```bash
 sha256sum -c SHA256SUMS
 ```
@@ -145,7 +161,7 @@ CPU هو الخيار الافتراضي والأوسع توافقًا. خيار
 - `app/`: واجهة API ومعالجة المهام والصوت.
 - `packaging/`: ملفات بناء حزم Debian وRPM وArch وAppImage.
 - `assets/`: الصور وبيانات النموذج؛ ملف النموذج الكبير يُنزّل عند الحاجة ولا يُرفع إلى Git.
-- `install.sh` و`harammute*` و`tray_launcher.py`: التثبيت ومشغلات التطبيق والخدمة.
+- `install.sh` و`install-release.sh` و`harammute*` و`tray_launcher.py`: مثبّت المصدر ومثبّت الإصدارات ومشغلات التطبيق والخدمة.
 - `.github/workflows/`: فحوص CI وبناء حزم الإصدارات.
 
 ## الترخيص
@@ -168,7 +184,21 @@ HaramMute Linux is an independent local server for the HaramMute browser extensi
 
 ### Quick install
 
-The current release packages target **x86_64** and use CPU inference. Download the package for your distribution and `SHA256SUMS` from the [release page](https://github.com/AS-Offical/HaramMute-Linux/releases/tag/v1.0.18-3) into the same folder, then verify the files:
+The current release packages target **x86_64** and use CPU inference. To download the latest release, select the package for your distribution, verify its SHA256, and install it automatically, run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AS-Offical/HaramMute-Linux/main/install-release.sh | bash
+```
+
+The installer uses native packages on Debian/Ubuntu, Fedora 44, openSUSE Tumbleweed, and Arch; it uses the AppImage on other glibc-based distributions. It verifies SHA256 before installation and requests `sudo` only for native package installation. ARM and Alpine/musl are not supported by this installer.
+
+To preview the release and package it selects without downloading or installing it:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AS-Offical/HaramMute-Linux/main/install-release.sh | bash -s -- --dry-run
+```
+
+To download and install a package manually, get the package and `SHA256SUMS` from the [release page](https://github.com/AS-Offical/HaramMute-Linux/releases/latest) into the same folder, then verify the files:
 
 ```bash
 sha256sum -c SHA256SUMS
@@ -284,7 +314,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and contribution gu
 - `app/`: API, jobs, and audio processing.
 - `packaging/`: Debian, RPM, Arch, and AppImage build files.
 - `assets/`: images and model metadata; the large model is downloaded when needed and is not stored in Git.
-- `install.sh`, `harammute*`, and `tray_launcher.py`: installer, launchers, and service integration.
+- `install.sh`, `install-release.sh`, `harammute*`, and `tray_launcher.py`: source and release installers, launchers, and service integration.
 - `.github/workflows/`: CI checks and release package builds.
 
 ### License
