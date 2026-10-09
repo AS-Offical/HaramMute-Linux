@@ -21,11 +21,17 @@ jobs:
           python-version: '3.12'
       - name: Install test tools
         run: python -m pip install -r requirements-dev.txt
-      - name: Run unit tests and measure coverage
+      - name: Run unit tests and enforce 100% core runtime coverage
         run: >-
           python -m pytest -q
+          --cov=app.config
+          --cov=app.schemas
+          --cov=app.limits
           --cov=app.jobs
           --cov=app.desktop_telemetry
+          --cov=app.local_processing
+          --cov=app.pipeline
+          --cov-fail-under=100
           --cov-report=term-missing
           --cov-report=xml:coverage.xml
       - name: Upload coverage to Codecov
@@ -33,6 +39,7 @@ jobs:
         with:
           files: coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
+          flags: core-runtime
           fail_ci_if_error: false
 
   source-checks:

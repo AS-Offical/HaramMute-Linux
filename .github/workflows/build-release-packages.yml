@@ -12,8 +12,42 @@ permissions:
   contents: read
 
 jobs:
+  unit-coverage:
+    name: Unit tests and 100% core runtime coverage
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test tools
+        run: python -m pip install -r requirements-dev.txt
+      - name: Run unit tests and enforce core runtime coverage
+        run: >-
+          python -m pytest -q
+          --cov=app.config
+          --cov=app.schemas
+          --cov=app.limits
+          --cov=app.jobs
+          --cov=app.desktop_telemetry
+          --cov=app.local_processing
+          --cov=app.pipeline
+          --cov-fail-under=100
+          --cov-report=term-missing
+          --cov-report=xml:coverage.xml
+      - name: Upload release-tag coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          files: coverage.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: core-runtime,release
+          fail_ci_if_error: false
+
   deb-and-appimage:
     name: Debian and AppImage
+    needs: unit-coverage
     runs-on: ubuntu-22.04
     timeout-minutes: 90
     steps:
@@ -77,6 +111,7 @@ jobs:
 
   native-packages:
     name: ${{ matrix.distro }} package
+    needs: unit-coverage
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     strategy:
