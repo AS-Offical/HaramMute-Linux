@@ -44,9 +44,10 @@ def test_onnx_import_error(monkeypatch):
     assert lp._import_onnxruntime() is None
 
 
-def test_onnx_import_success():
-    if lp._import_onnxruntime() is not None:
-        assert hasattr(lp._import_onnxruntime(), "get_available_providers")
+def test_onnx_import_success(monkeypatch):
+    module = SimpleNamespace(get_available_providers=lambda: ["CPUExecutionProvider"])
+    monkeypatch.setitem(sys.modules, "onnxruntime", module)
+    assert lp._import_onnxruntime() is module
 
 
 @pytest.mark.parametrize("providers, expected", [
