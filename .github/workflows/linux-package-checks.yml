@@ -11,6 +11,30 @@ permissions:
   contents: read
 
 jobs:
+  unit-coverage:
+    name: Unit tests and coverage
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test tools
+        run: python -m pip install -r requirements-dev.txt
+      - name: Run unit tests and measure coverage
+        run: >-
+          python -m pytest -q
+          --cov=app.jobs
+          --cov=app.desktop_telemetry
+          --cov-report=term-missing
+          --cov-report=xml:coverage.xml
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          files: coverage.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+
   source-checks:
     name: Source and integration metadata
     runs-on: ubuntu-24.04
