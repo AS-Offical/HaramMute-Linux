@@ -45,6 +45,10 @@ curl -fsSL https://raw.githubusercontent.com/AS-Offical/HaramMute-Linux/main/ins
 
 ولتنزيل الحزمة يدويًا، اتبع الخطوات التالية:
 
+اذهب لصفحة الـ[Releases](https://github.com/AS-Offical/HaramMute-Linux/releases) 
+حمل النسخة المناسبة لتوزيعتك ونزل SHA256SUMS
+ثم نفذ:
+
 ```bash
 sha256sum -c SHA256SUMS
 ```
