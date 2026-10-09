@@ -1,7 +1,7 @@
 # HaramMute Linux
 
 <p align="center">
-  <a href="https://github.com/AS-Offical/HaramMute-Linux/actions/workflows/linux-package-checks.yml"><img src="https://github.com/AS-Offical/HaramMute-Linux/actions/workflows/linux-package-checks.yml/badge.svg?branch=main" alt="Linux package checks" /></a>
+  <a href="https://github.com/AS-Offical/HaramMute-Linux/actions/workflows/linux-package-checks.yml"><img src="https://img.shields.io/github/actions/workflow/status/AS-Offical/HaramMute-Linux/linux-package-checks.yml?branch=main&amp;label=CI" alt="CI status" /></a>
   <a href="https://github.com/AS-Offical/HaramMute-Linux/releases/latest"><img src="https://img.shields.io/github/v/release/AS-Offical/HaramMute-Linux" alt="Latest release" /></a>
   <a href="https://codecov.io/gh/AS-Offical/HaramMute-Linux"><img src="https://codecov.io/gh/AS-Offical/HaramMute-Linux/branch/main/graph/badge.svg" alt="Core runtime coverage" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/AS-Offical/HaramMute-Linux" alt="License: MIT" /></a>
