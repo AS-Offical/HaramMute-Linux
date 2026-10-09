@@ -3,6 +3,9 @@
 <p align="center">
   <img src="assets/cover.png" alt="HaramMute Linux">
 </p>
+<a href="https://codecov.io/github/AS-Offical/HaramMute-Linux" > 
+ <img src="https://codecov.io/github/AS-Offical/HaramMute-Linux/graph/badge.svg?token=DCQKK9K629"/> 
+ </a>
 
 [العربية](#العربية) · [English](#english)
 
