@@ -12,10 +12,6 @@
   <img src="assets/cover.png" alt="HaramMute Linux">
 </p>
 
-شعار التغطية يقيس وحدات runtime الأساسية: الإعدادات، المخططات، الحدود، المهام، القياس الاختياري، المعالجة المحلية وخط المعالجة. واجهات API في `app.main` وواجهة GTK لا تدخل في نسبة 100% الحالية.
-
-The coverage badge measures the core runtime modules: configuration, schemas, limits, jobs, optional telemetry, local processing, and the processing pipeline. The `app.main` API and GTK interface are not included in the current 100% figure.
-
 [العربية](#العربية) · [English](#english)
 
 ## العربية
