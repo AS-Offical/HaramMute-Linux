@@ -43,28 +43,30 @@ jobs:
             app_pid=$!
             trap "kill $app_pid 2>/dev/null || true; wait $app_pid 2>/dev/null || true" EXIT
             for _ in $(seq 1 240); do
+              health_ready=0
               if curl --silent --show-error --fail --max-time 1 \
                 http://127.0.0.1:8765/health -o "$HARAMMUTE_DATA_DIR/health.json" \
                 2>/dev/null \
                 && python3 -c '\''import json,sys; d=json.load(open(sys.argv[1])); assert d.get("status")=="ok" and d.get("service")=="harammute"'\'' \
                   "$HARAMMUTE_DATA_DIR/health.json" 2>/dev/null; then
-                if grep -q "HaramMute tray active" "$HARAMMUTE_DATA_DIR/tray.log"; then
-                  exit 0
-                fi
-                echo "Health endpoint is ready, but the tray did not report active." >&2
-                cat "$HARAMMUTE_DATA_DIR/tray.log" >&2
-                exit 1
+                health_ready=1
+              fi
+              if [[ "$health_ready" = 1 ]] \
+                && grep -q "HaramMute tray active" "$HARAMMUTE_DATA_DIR/tray.log"; then
+                exit 0
               fi
               if ! kill -0 "$app_pid" 2>/dev/null; then
                 wait "$app_pid" || true
                 echo "HaramMute exited before its health endpoint became ready." >&2
                 cat "$HARAMMUTE_DATA_DIR/tray.log" >&2
+                cat "$HARAMMUTE_DATA_DIR/logs/server.log" >&2 2>/dev/null || true
                 exit 1
               fi
               sleep 0.5
             done
-            echo "Timed out waiting for the HaramMute health endpoint." >&2
+            echo "Timed out waiting for the health endpoint and tray startup." >&2
             cat "$HARAMMUTE_DATA_DIR/tray.log" >&2
+            cat "$HARAMMUTE_DATA_DIR/logs/server.log" >&2 2>/dev/null || true
             exit 1
           '
       - name: Build a portable Nix store closure archive
