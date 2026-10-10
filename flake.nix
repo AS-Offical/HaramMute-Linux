@@ -10,6 +10,7 @@
       version = "1.0.18-3";
       trayPython = pkgs.python312.withPackages (pythonPkgs: [ pythonPkgs.pygobject3 ]);
       trayTypeLibs = pkgs.lib.makeSearchPath "lib/girepository-1.0" [
+        pkgs.gobject-introspection
         pkgs.gtk3
         pkgs.libayatana-appindicator
       ];
