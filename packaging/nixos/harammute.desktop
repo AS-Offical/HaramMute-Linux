@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=HaramMute
+Comment=Local audio separation for the HaramMute browser extension
+Exec=@HARAMMUTE_BIN@
+Icon=@HARAMMUTE_ICON@
+Terminal=false
+Categories=AudioVideo;Audio;
+StartupNotify=false

@@ -35,7 +35,17 @@
 curl -fsSL https://raw.githubusercontent.com/AS-Offical/HaramMute-Linux/main/install-release.sh | bash
 ```
 
-يتحقق المثبّت من SHA256 قبل التثبيت. يستخدم الحزمة الأصلية على Debian/Ubuntu وFedora 44 وopenSUSE Tumbleweed وArch؛ ويستخدم AppImage على توزيعات glibc الأخرى. سيطلب `sudo` لتثبيت الحزم الأصلية فقط. لا يدعم هذا المسار ARM أو Alpine/musl.
+يتحقق المثبّت من SHA256 قبل التثبيت. يستخدم الحزمة الأصلية على Debian/Ubuntu وFedora 44 وopenSUSE Tumbleweed وArch، وحزمة Nix store مبنية على GitHub في NixOS، وAppImage على توزيعات glibc الأخرى. يستخدم `sudo` لتثبيت الحزم الأصلية فقط. لا يدعم ARM أو Alpine/musl.
+
+### NixOS
+
+يختار المثبّت حزمة NixOS المبنية على GitHub Actions، ويتحقق من بصمتها، ثم يستوردها إلى Nix store ويثبتها في ملف المستخدم الشخصي. يلزم `nix-store` و`nix-env` و`zstd` بالإضافة إلى `curl` و`sha256sum`.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AS-Offical/HaramMute-Linux/main/install-release.sh | bash
+```
+
+بعد التثبيت افتح HaramMute من قائمة التطبيقات. يلزم تثبيت إضافة المتصفح بشكل منفصل. يتطلب أول فصل صوت تنزيل نموذج ONNX. للتثبيت التعريفي عبر Flakes، راجع [دليل حزمة NixOS](packaging/nixos/README.md).
 
 لمعاينة الإصدار والحزمة التي سيختارها دون تنزيلها أو تثبيتها:
 
@@ -194,7 +204,7 @@ The current release packages target **x86_64** and use CPU inference. To downloa
 curl -fsSL https://raw.githubusercontent.com/AS-Offical/HaramMute-Linux/main/install-release.sh | bash
 ```
 
-The installer uses native packages on Debian/Ubuntu, Fedora 44, openSUSE Tumbleweed, and Arch; it uses the AppImage on other glibc-based distributions. It verifies SHA256 before installation and requests `sudo` only for native package installation. ARM and Alpine/musl are not supported by this installer.
+The installer uses native packages on Debian/Ubuntu, Fedora 44, openSUSE Tumbleweed, and Arch. On NixOS it imports a Nix store closure built on GitHub Actions into the current user's profile. Other glibc-based distributions use the AppImage. It verifies SHA256 before installation and requests `sudo` only for native system packages. ARM and Alpine/musl are not supported.
 
 To preview the release and package it selects without downloading or installing it:
 
@@ -219,6 +229,12 @@ sudo apt install ./harammute-linux_1.0.18-3_amd64.deb
 ```bash
 sudo dnf install ./harammute-linux-1.0.18-3.fc44.x86_64.rpm
 ```
+
+#### NixOS
+
+Use the automatic installer above. It downloads the NixOS-specific package built and smoke-checked on GitHub Actions, then installs it into the current user's Nix profile. It requires `nix-store`, `nix-env`, `zstd`, `curl`, and `sha256sum`. The package uses a Nix FHS AppImage wrapper to provide GTK, PyGObject, and AppIndicator for the tray; the processing runtime and FFmpeg are bundled.
+
+For declarative NixOS configurations, the repository also provides a flake package and `nixosModules.default`; see [NixOS packaging](packaging/nixos/README.md).
 
 #### openSUSE Tumbleweed
 

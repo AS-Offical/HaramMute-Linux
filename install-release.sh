@@ -16,7 +16,7 @@ while (($#)); do
     esac
 done
 
-for dependency in curl python3 sha256sum; do
+for dependency in curl sha256sum; do
     if ! command -v "$dependency" >/dev/null 2>&1; then
         echo "Missing required command: $dependency" >&2
         exit 1
@@ -44,6 +44,7 @@ fi
 . /etc/os-release
 
 case " $ID ${ID_LIKE:-} " in
+    *" nixos "*) PACKAGE_KIND="nixos" ;;
     *" debian "*|*" ubuntu "*|*" linuxmint "*|*" pop "*) PACKAGE_KIND="deb" ;;
     *" arch "*|*" manjaro "*|*" cachyos "*|*" endeavouros "*) PACKAGE_KIND="arch" ;;
     *" opensuse-tumbleweed "*) PACKAGE_KIND="opensuse" ;;
@@ -51,21 +52,38 @@ case " $ID ${ID_LIKE:-} " in
     *) PACKAGE_KIND="appimage" ;;
 esac
 
-RELEASE_JSON="$(mktemp)"
+if [[ "$PACKAGE_KIND" == "nixos" ]]; then
+    for dependency in nix-store nix-env tar zstd; do
+        if ! command -v "$dependency" >/dev/null 2>&1; then
+            echo "NixOS installation requires $dependency." >&2
+            exit 1
+        fi
+    done
+elif ! command -v python3 >/dev/null 2>&1; then
+    echo "Missing required command: python3" >&2
+    exit 1
+fi
+
 TEMP_DIR="$(mktemp -d)"
 cleanup() {
-    rm -f "$RELEASE_JSON"
     rm -rf "$TEMP_DIR"
 }
 trap cleanup EXIT
 
-curl --fail --silent --show-error --location --retry 3 \
-    "https://api.github.com/repos/$REPOSITORY/releases/latest" \
-    --output "$RELEASE_JSON"
+if [[ "$PACKAGE_KIND" == "nixos" ]]; then
+    RELEASE_TAG="latest"
+    ASSET_NAME="harammute-nixos-x86_64-nixstore.tar.zst"
+    ASSET_URL="https://github.com/$REPOSITORY/releases/latest/download/$ASSET_NAME"
+    CHECKSUM_URL="https://github.com/$REPOSITORY/releases/latest/download/SHA256SUMS"
+else
+    RELEASE_JSON="$TEMP_DIR/release.json"
+    curl --fail --silent --show-error --location --retry 3 \
+        "https://api.github.com/repos/$REPOSITORY/releases/latest" \
+        --output "$RELEASE_JSON"
 
-IFS=$'\t' read -r RELEASE_TAG ASSET_NAME ASSET_URL < <(
-    PACKAGE_KIND="$PACKAGE_KIND" VERSION_ID="${VERSION_ID:-}" \
-        python3 - "$RELEASE_JSON" <<'PY'
+    IFS=$'\t' read -r RELEASE_TAG ASSET_NAME ASSET_URL < <(
+        PACKAGE_KIND="$PACKAGE_KIND" VERSION_ID="${VERSION_ID:-}" \
+            python3 - "$RELEASE_JSON" <<'PY'
 import json
 import os
 import sys
@@ -87,7 +105,7 @@ elif kind == "fedora":
 else:
     candidates = []
 
-if not candidates:
+if not candidates and kind != "nixos":
     kind = "appimage"
     candidates = [name for name in assets if name.endswith("x86_64.AppImage")]
 if len(candidates) != 1:
@@ -96,7 +114,9 @@ if len(candidates) != 1:
 name = candidates[0]
 print(release["tag_name"], name, assets[name], sep="\t")
 PY
-)
+    )
+    CHECKSUM_URL="https://github.com/$REPOSITORY/releases/download/$RELEASE_TAG/SHA256SUMS"
+fi
 
 if [[ -z "${RELEASE_TAG:-}" || -z "${ASSET_NAME:-}" || -z "${ASSET_URL:-}" ]]; then
     echo "Could not select a compatible package from the latest release." >&2
@@ -114,8 +134,7 @@ fi
 curl --fail --silent --show-error --location --retry 3 \
     "$ASSET_URL" --output "$TEMP_DIR/$ASSET_NAME"
 curl --fail --silent --show-error --location --retry 3 \
-    "https://github.com/$REPOSITORY/releases/download/$RELEASE_TAG/SHA256SUMS" \
-    --output "$TEMP_DIR/SHA256SUMS"
+    "$CHECKSUM_URL" --output "$TEMP_DIR/SHA256SUMS"
 
 if ! EXPECTED_SHA="$(awk -v asset="$ASSET_NAME" '$2 == asset { print $1; found = 1 } END { if (!found) exit 1 }' "$TEMP_DIR/SHA256SUMS")"; then
     echo "No checksum entry found for $ASSET_NAME in the latest release." >&2
@@ -159,6 +178,18 @@ case "$ASSET_NAME" in
     *.pkg.tar.zst)
         command -v pacman >/dev/null 2>&1 || { echo "pacman is required for this Arch package." >&2; exit 1; }
         run_privileged pacman -U --noconfirm "$TEMP_DIR/$ASSET_NAME"
+        ;;
+    *nixstore.tar.zst)
+        NIXOS_DIR="$TEMP_DIR/nixos-package"
+        mkdir -p "$NIXOS_DIR"
+        tar --zstd -xf "$TEMP_DIR/$ASSET_NAME" -C "$NIXOS_DIR"
+        STORE_PATH="$(<"$NIXOS_DIR/harammute-store-path")"
+        if [[ ! "$STORE_PATH" =~ ^/nix/store/[a-z0-9]{32}-harammute-[^/]+$ ]]; then
+            echo "The release archive contains an invalid HaramMute store path." >&2
+            exit 1
+        fi
+        zstd -dc "$NIXOS_DIR/harammute.store.zst" | nix-store --import
+        nix-env --install "$STORE_PATH"
         ;;
     *.AppImage)
         APP_DIR="${HOME:?HOME must be set}/.local/opt/harammute"

@@ -1,0 +1,98 @@
+name: Build NixOS package
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published release to attach the tested NixOS package to
+        required: true
+        default: v1.0.18-3
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-smoke-test:
+    name: Build and test on GitHub Actions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      - name: Resolve and lock the stable NixOS package set
+        run: nix flake lock
+      - name: Build HaramMute with Nix
+        run: nix build --show-trace --print-build-logs .#harammute
+      - name: Install headless graphical smoke-test tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends curl dbus-x11 xvfb zstd
+      - name: Start tray and verify the local service
+        env:
+          HARAMMUTE_BIN: ${{ github.workspace }}/result/bin/harammute
+          HARAMMUTE_DATA_DIR: ${{ runner.temp }}/harammute-nixos-smoke
+        run: |
+          set -euo pipefail
+          mkdir -p "$HARAMMUTE_DATA_DIR"
+          dbus-run-session -- xvfb-run -a bash -euo pipefail -c '
+            "$HARAMMUTE_BIN" >"$HARAMMUTE_DATA_DIR/tray.log" 2>&1 &
+            app_pid=$!
+            trap "kill $app_pid 2>/dev/null || true; wait $app_pid 2>/dev/null || true" EXIT
+            for _ in $(seq 1 240); do
+              if curl --silent --fail --max-time 1 http://127.0.0.1:8765/health \
+                | python3 -c '\''import json,sys; d=json.load(sys.stdin); assert d.get("status")=="ok" and d.get("service")=="harammute"'\''; then
+                grep -q "HaramMute tray active" "$HARAMMUTE_DATA_DIR/tray.log"
+                exit 0
+              fi
+              if ! kill -0 "$app_pid" 2>/dev/null; then cat "$HARAMMUTE_DATA_DIR/tray.log"; exit 1; fi
+              sleep 0.5
+            done
+            cat "$HARAMMUTE_DATA_DIR/tray.log"
+            exit 1
+          '
+      - name: Build a portable Nix store closure archive
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [[ "$RELEASE_TAG" != "v1.0.18-3" ]]; then
+            echo "flake.nix is pinned to v1.0.18-3; update its version and hash before building another release." >&2
+            exit 1
+          fi
+          store_path="$(readlink -f result)"
+          mkdir -p "$RUNNER_TEMP/nixos-package"
+          printf '%s\n' "$store_path" > "$RUNNER_TEMP/nixos-package/harammute-store-path"
+          mapfile -t closure < <(nix-store --query --requisites "$store_path")
+          nix-store --export "${closure[@]}" | zstd -T0 -6 -o "$RUNNER_TEMP/nixos-package/harammute.store.zst"
+          tar --zstd -cf "$RUNNER_TEMP/harammute-nixos-x86_64-nixstore.tar.zst" \
+            -C "$RUNNER_TEMP/nixos-package" harammute-store-path harammute.store
+          ls -lh "$RUNNER_TEMP/harammute-nixos-x86_64-nixstore.tar.zst"
+      - name: Attach package and update release checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          release_dir="$RUNNER_TEMP/release-assets"
+          mkdir -p "$release_dir"
+          gh release download "$RELEASE_TAG" --repo "$REPOSITORY" \
+            --pattern SHA256SUMS --dir "$release_dir"
+          package="$RUNNER_TEMP/harammute-nixos-x86_64-nixstore.tar.zst"
+          awk '$2 != "harammute-nixos-x86_64-nixstore.tar.zst"' "$release_dir/SHA256SUMS" \
+            > "$release_dir/SHA256SUMS.new"
+          mv "$release_dir/SHA256SUMS.new" "$release_dir/SHA256SUMS"
+          sha256sum "$package" >> "$release_dir/SHA256SUMS"
+          gh release upload "$RELEASE_TAG" "$package" "$release_dir/SHA256SUMS" \
+            --clobber --repo "$REPOSITORY"
+      - name: Preserve the exact Nix lock used for this build
+        uses: actions/upload-artifact@v4
+        with:
+          name: nixos-flake-lock
+          path: flake.lock
+          if-no-files-found: error
+          retention-days: 7
