@@ -31,6 +31,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends curl dbus-x11 xvfb zstd
+      - name: Verify the Gio interface and loaded Nix libraries
+        env:
+          HARAMMUTE_BIN: ${{ github.workspace }}/result/bin/harammute
+          HARAMMUTE_DATA_DIR: ${{ runner.temp }}/harammute-nixos-gi-diagnostics
+        run: |
+          set -euo pipefail
+          mkdir -p "$HARAMMUTE_DATA_DIR"
+          HARAMMUTE_GI_DIAGNOSTICS=1 sudo -E "$HARAMMUTE_BIN"
       - name: Start tray and verify the local service
         env:
           HARAMMUTE_BIN: ${{ github.workspace }}/result/bin/harammute

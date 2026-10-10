@@ -74,6 +74,23 @@ export LD_LIBRARY_PATH="${trayLibraries}:$LD_LIBRARY_PATH"
 if [ ! -x "$PYTHON_BIN" ]' \
             --replace-fail 'export HARAMMUTE_DATA_DIR="$DATA_DIR"' 'export HARAMMUTE_DATA_DIR="$DATA_DIR"
 export GI_TYPELIB_PATH="$HERE/nix-girepository-1.0"
+if [ "''${HARAMMUTE_GI_DIAGNOSTICS:-}" = 1 ]; then
+  ${trayPython}/bin/python3 -c '\''
+import gi
+from gi.repository import GIRepository, GObject
+repo = GIRepository.Repository.get_default()
+print("GI search path:", repo.get_search_path(), flush=True)
+repo.require("Gio", "2.0", 0)
+info = repo.find_by_name("Gio", "ActionMap")
+gtype = info.get_g_type()
+print("Gio.ActionMap GType:", gtype.name, "is interface:", GObject.type_is_a(gtype, GObject.TYPE_INTERFACE), flush=True)
+print("Loaded GLib/Gio libraries:", flush=True)
+for line in open("/proc/self/maps"):
+    if any(name in line for name in ("libgio-2.0", "libglib-2.0", "libgirepository")):
+        print(line.rstrip(), flush=True)
+'\''
+  exit $?
+fi
 '
           substituteInPlace "$out/usr/lib/harammute-linux/tray_launcher.py" \
             --replace-fail 'server_env = os.environ.copy()' 'server_env = os.environ.copy()
