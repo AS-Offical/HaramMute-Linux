@@ -11,7 +11,7 @@
       trayPython = pkgs.python312.withPackages (pythonPkgs: [ pythonPkgs.pygobject3 ]);
       trayPango = pkgs.pango.override { withIntrospection = true; };
       trayTypeLibs = pkgs.lib.makeSearchPath "lib/girepository-1.0" [
-        pkgs.gobject-introspection
+        pkgs.gobject-introspection-unwrapped
         pkgs.glib
         pkgs.cairo
         trayPango
@@ -24,7 +24,7 @@
       ];
       trayLibraries = pkgs.lib.makeLibraryPath [
         pkgs.glib
-        pkgs.gobject-introspection
+        pkgs.gobject-introspection-unwrapped
         pkgs.gtk3
         pkgs.libayatana-appindicator
       ];
@@ -45,7 +45,7 @@
             find -L "$runtime_package" -name '*.gir' -print
           done
           for runtime_package in \
-            ${pkgs.gobject-introspection} ${pkgs.glib} ${pkgs.cairo} \
+            ${pkgs.gobject-introspection-unwrapped} ${pkgs.glib} ${pkgs.cairo} \
             ${trayPango} ${trayPango.dev} ${trayPango.devdoc} ${pkgs.gdk-pixbuf} ${pkgs.atk} ${pkgs.gtk3} \
             ${pkgs.libayatana-appindicator}; do
             find -L "$runtime_package" -path '*/girepository-1.0/*.typelib' \
@@ -53,7 +53,7 @@
           done
           gir_directories=()
           for runtime_package in \
-            ${pkgs.gobject-introspection} ${pkgs.glib} ${pkgs.cairo} \
+            ${pkgs.gobject-introspection-unwrapped} ${pkgs.glib} ${pkgs.cairo} \
             ${trayPango} ${trayPango.dev} ${trayPango.devdoc} ${pkgs.gdk-pixbuf} ${pkgs.atk} ${pkgs.gtk3} \
             ${pkgs.libayatana-appindicator}; do
             while IFS= read -r gir_directory; do
@@ -62,7 +62,7 @@
           done
           for gir_file in ${trayPango.dev}/share/gir-1.0/*.gir; do
             typelib_file="$out/nix-girepository-1.0/$(basename "''${gir_file%.gir}.typelib")"
-            ${pkgs.gobject-introspection}/bin/g-ir-compiler \
+            ${pkgs.gobject-introspection-unwrapped}/bin/g-ir-compiler \
               "''${gir_directories[@]}" "$gir_file" --output "$typelib_file"
           done
           substituteInPlace "$out/AppRun" \
@@ -94,7 +94,7 @@ export GI_TYPELIB_PATH="$HERE/nix-girepository-1.0:${trayTypeLibs}"
         extraPkgs = appimagePkgs: [
           trayPython
           trayPango
-          appimagePkgs.gobject-introspection
+          appimagePkgs.gobject-introspection-unwrapped
           appimagePkgs.glib
           appimagePkgs.cairo
           appimagePkgs.gdk-pixbuf
