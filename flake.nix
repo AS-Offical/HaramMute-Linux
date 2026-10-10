@@ -9,9 +9,10 @@
       pkgs = import nixpkgs { inherit system; };
       version = "1.0.18-3";
       trayPython = pkgs.python312.withPackages (pythonPkgs: [ pythonPkgs.pygobject3 ]);
+      trayGlib = pkgs.glib.override { withIntrospection = true; };
       trayPango = pkgs.pango.override { withIntrospection = true; };
       trayLibraries = pkgs.lib.makeLibraryPath [
-        pkgs.glib
+        trayGlib
         pkgs.gobject-introspection-unwrapped
         pkgs.gtk3
         pkgs.libayatana-appindicator
@@ -34,7 +35,7 @@
           done
           for runtime_package in \
             ${pkgs.gobject-introspection-unwrapped} ${pkgs.gobject-introspection-unwrapped.dev} \
-            ${pkgs.glib} ${pkgs.glib.dev} ${pkgs.glib.devdoc} ${pkgs.cairo} ${pkgs.cairo.dev} ${pkgs.harfbuzz} ${pkgs.harfbuzz.dev} \
+            ${trayGlib} ${trayGlib.dev} ${trayGlib.devdoc} ${pkgs.cairo} ${pkgs.cairo.dev} ${pkgs.harfbuzz} ${pkgs.harfbuzz.dev} \
             ${trayPango} ${trayPango.dev} ${trayPango.devdoc} ${pkgs.gdk-pixbuf} ${pkgs.atk} ${pkgs.gtk3} \
             ${pkgs.libayatana-appindicator}; do
             find -L "$runtime_package" -path '*/girepository-1.0/*.typelib' \
@@ -43,7 +44,7 @@
           gir_directories=()
           for runtime_package in \
             ${pkgs.gobject-introspection-unwrapped} ${pkgs.gobject-introspection-unwrapped.dev} \
-            ${pkgs.glib} ${pkgs.glib.dev} ${pkgs.glib.devdoc} ${pkgs.cairo} ${pkgs.cairo.dev} ${pkgs.harfbuzz} ${pkgs.harfbuzz.dev} \
+            ${trayGlib} ${trayGlib.dev} ${trayGlib.devdoc} ${pkgs.cairo} ${pkgs.cairo.dev} ${pkgs.harfbuzz} ${pkgs.harfbuzz.dev} \
             ${trayPango} ${trayPango.dev} ${trayPango.devdoc} ${pkgs.gdk-pixbuf} ${pkgs.atk} ${pkgs.gtk3} \
             ${pkgs.libayatana-appindicator}; do
             while IFS= read -r gir_directory; do
@@ -52,7 +53,7 @@
           done
           echo "Collected Nix typelibs:"
           ls -l "$out/nix-girepository-1.0"
-          for gir_file in ${trayPango.dev}/share/gir-1.0/*.gir; do
+          for gir_file in ${trayGlib.dev}/share/gir-1.0/*.gir ${trayPango.dev}/share/gir-1.0/*.gir; do
             typelib_file="$out/nix-girepository-1.0/$(basename "''${gir_file%.gir}.typelib")"
             ${pkgs.gobject-introspection-unwrapped.dev}/bin/g-ir-compiler \
               "''${gir_directories[@]}" "$gir_file" --output "$typelib_file"
@@ -87,7 +88,7 @@ export GI_TYPELIB_PATH="$HERE/nix-girepository-1.0"
           trayPython
           trayPango
           appimagePkgs.gobject-introspection-unwrapped
-          appimagePkgs.glib
+          trayGlib
           appimagePkgs.cairo
           appimagePkgs.gdk-pixbuf
           appimagePkgs.atk
