@@ -76,7 +76,6 @@ export LD_LIBRARY_PATH="${trayLibraries}:$LD_LIBRARY_PATH"
 if [ ! -x "$PYTHON_BIN" ]' \
             --replace-fail 'export HARAMMUTE_DATA_DIR="$DATA_DIR"' 'export HARAMMUTE_DATA_DIR="$DATA_DIR"
 export GI_TYPELIB_PATH="$HERE/nix-girepository-1.0"
-export PYTHONDONTWRITEBYTECODE=1
 '
           substituteInPlace "$out/usr/lib/harammute-linux/tray_launcher.py" \
             --replace-fail 'server_env = os.environ.copy()' 'server_env = os.environ.copy()
