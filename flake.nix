@@ -13,6 +13,7 @@
         pkgs.gtk3
         pkgs.libayatana-appindicator
       ];
+      trayLibraries = pkgs.lib.makeLibraryPath [ pkgs.gtk3 pkgs.libayatana-appindicator ];
       appimage = pkgs.fetchurl {
         url = "https://github.com/AS-Offical/HaramMute-Linux/releases/download/v${version}/HaramMute-1.0.18-x86_64.AppImage";
         hash = "sha256-PUmTV7G8voj/3p7zFMRUVk7donZhiLYnM5An/EEBpTU=";
@@ -27,9 +28,18 @@
             --replace-fail 'python3 -c' '${trayPython}/bin/python3 -c' \
             --replace-fail 'PYTHONPATH python3 ' 'PYTHONPATH ${trayPython}/bin/python3 ' \
             --replace-fail "' >/dev/null 2>&1; then" "' >&2; then" \
+            --replace-fail 'fi
+if [ ! -x "$PYTHON_BIN" ]' 'fi
+export HARAMMUTE_SERVER_LD_LIBRARY_PATH="$LD_LIBRARY_PATH"
+export LD_LIBRARY_PATH="${trayLibraries}:$LD_LIBRARY_PATH"
+if [ ! -x "$PYTHON_BIN" ]' \
             --replace-fail 'export HARAMMUTE_DATA_DIR="$DATA_DIR"' 'export HARAMMUTE_DATA_DIR="$DATA_DIR"
 export GI_TYPELIB_PATH="${trayTypeLibs}"
-export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [ pkgs.gtk3 pkgs.libayatana-appindicator ]}:''${LD_LIBRARY_PATH:-}"'
+'
+          substituteInPlace "$out/usr/lib/harammute-linux/tray_launcher.py" \
+            --replace-fail 'server_env = os.environ.copy()' 'server_env = os.environ.copy()
+        if server_env.get("HARAMMUTE_SERVER_LD_LIBRARY_PATH"):
+            server_env["LD_LIBRARY_PATH"] = server_env["HARAMMUTE_SERVER_LD_LIBRARY_PATH"]'
         '';
       };
       harammute = pkgs.appimageTools.wrapAppImage {
