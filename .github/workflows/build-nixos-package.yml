@@ -38,12 +38,6 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$HARAMMUTE_DATA_DIR"
-          sudo -E env APPIMAGE_DEBUG_EXEC=/bin/bash "$HARAMMUTE_BIN" -c '
-            set -x
-            command -v python3
-            python3 -c "import gi; print(gi.__file__); gi.require_version(\"Gtk\", \"3.0\"); from gi.repository import Gtk; print(Gtk)"
-            python3 -c "import gi; gi.require_version(\"AyatanaAppIndicator3\", \"0.1\"); from gi.repository import AyatanaAppIndicator3; print(AyatanaAppIndicator3)"
-          '
           dbus-run-session -- xvfb-run -a bash -euo pipefail -c '
             sudo -E "$HARAMMUTE_BIN" >"$HARAMMUTE_DATA_DIR/tray.log" 2>&1 &
             app_pid=$!

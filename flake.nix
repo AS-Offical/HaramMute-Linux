@@ -8,6 +8,11 @@
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
       version = "1.0.18-3";
+      trayPython = pkgs.python312.withPackages (pythonPkgs: [ pythonPkgs.pygobject3 ]);
+      trayTypeLibs = pkgs.lib.makeSearchPath "lib/girepository-1.0" [
+        pkgs.gtk3
+        pkgs.libayatana-appindicator
+      ];
       appimage = pkgs.fetchurl {
         url = "https://github.com/AS-Offical/HaramMute-Linux/releases/download/v${version}/HaramMute-1.0.18-x86_64.AppImage";
         hash = "sha256-PUmTV7G8voj/3p7zFMRUVk7donZhiLYnM5An/EEBpTU=";
@@ -20,13 +25,18 @@
         # The upstream AppImage uses the host Python only for its GTK tray.
         # The audio-processing Python runtime and FFmpeg are bundled in it.
         extraPkgs = appimagePkgs: [
-          (appimagePkgs.python312.withPackages (pythonPkgs: [ pythonPkgs.pygobject3 ]))
+          trayPython
           appimagePkgs.gtk3
           appimagePkgs.libayatana-appindicator
           appimagePkgs.gobject-introspection
           appimagePkgs.curl
           appimagePkgs.xdg-utils
         ];
+
+        profile = ''
+          export PATH="${trayPython}/bin:$PATH"
+          export GI_TYPELIB_PATH="${trayTypeLibs}''${GI_TYPELIB_PATH:+:$GI_TYPELIB_PATH}"
+        '';
 
         extraInstallCommands = ''
           install -Dm444 ${./icon.png} \
