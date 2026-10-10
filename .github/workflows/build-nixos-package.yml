@@ -39,7 +39,7 @@ jobs:
           set -euo pipefail
           mkdir -p "$HARAMMUTE_DATA_DIR"
           dbus-run-session -- xvfb-run -a bash -euo pipefail -c '
-            "$HARAMMUTE_BIN" >"$HARAMMUTE_DATA_DIR/tray.log" 2>&1 &
+            sudo -E "$HARAMMUTE_BIN" >"$HARAMMUTE_DATA_DIR/tray.log" 2>&1 &
             app_pid=$!
             trap "kill $app_pid 2>/dev/null || true; wait $app_pid 2>/dev/null || true" EXIT
             for _ in $(seq 1 240); do
