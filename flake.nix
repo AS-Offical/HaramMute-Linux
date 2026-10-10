@@ -27,6 +27,10 @@
         src = appimage;
         postExtract = ''
           mkdir -p "$out/nix-girepository-1.0"
+          for runtime_package in ${trayGlib} ${trayGlib.dev} ${trayGlib.devdoc}; do
+            echo "GLib GObject introspection files in $runtime_package:"
+            find -L "$runtime_package" \( -name '*.gir' -o -name '*.typelib' \) -print
+          done
           for runtime_package in ${trayPango} ${trayPango.dev} ${trayPango.devdoc}; do
             echo "GObject typelibs in $runtime_package:"
             find -L "$runtime_package" -name '*.typelib' -print
@@ -53,11 +57,11 @@
           done
           echo "Collected Nix typelibs:"
           ls -l "$out/nix-girepository-1.0"
-          for gir_file in ${trayGlib.dev}/share/gir-1.0/*.gir ${trayPango.dev}/share/gir-1.0/*.gir; do
+          while IFS= read -r gir_file; do
             typelib_file="$out/nix-girepository-1.0/$(basename "''${gir_file%.gir}.typelib")"
             ${pkgs.gobject-introspection-unwrapped.dev}/bin/g-ir-compiler \
               "''${gir_directories[@]}" "$gir_file" --output "$typelib_file"
-          done
+          done < <(find -L ${trayGlib} ${trayGlib.dev} ${trayGlib.devdoc} ${trayPango} ${trayPango.dev} ${trayPango.devdoc} -name '*.gir')
           substituteInPlace "$out/AppRun" \
             --replace-fail 'command -v python3' 'command -v ${trayPython}/bin/python3' \
             --replace-fail 'python3 -c' '${trayPython}/bin/python3 -c' \
