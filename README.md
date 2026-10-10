@@ -39,7 +39,7 @@ curl -fsSL https://raw.githubusercontent.com/AS-Offical/HaramMute-Linux/main/ins
 
 ### NixOS
 
-يختار المثبّت حزمة NixOS المبنية على GitHub Actions، ويتحقق من بصمتها، ثم يستوردها إلى Nix store ويثبتها في ملف المستخدم الشخصي. يلزم `nix-store` و`nix-env` و`zstd` بالإضافة إلى `curl` و`sha256sum`.
+يختار المثبّت حزمة NixOS المبنية على GitHub Actions، ويتحقق من بصمتها، ثم يستوردها إلى Nix store ويثبتها في ملف المستخدم الشخصي. يلزم `nix-store` و`nix-env` و`zstd` بالإضافة إلى `curl` و`sha256sum`. حجم التنزيل الحالي يقارب 1.1 GiB؛ الحزمة تتضمن إغلاق Nix كاملًا للتطبيق واعتمادياته، لا ملف AppImage وحده.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/AS-Offical/HaramMute-Linux/main/install-release.sh | bash
@@ -55,12 +55,12 @@ curl -fsSL https://raw.githubusercontent.com/AS-Offical/HaramMute-Linux/main/ins
 
 ولتنزيل الحزمة يدويًا، اتبع الخطوات التالية:
 
-اذهب لصفحة الـ[Releases](https://github.com/AS-Offical/HaramMute-Linux/releases) 
-حمل النسخة المناسبة لتوزيعتك ونزل SHA256SUMS
+اذهب لصفحة الـ[Releases](https://github.com/AS-Offical/HaramMute-Linux/releases)
+حمل النسخة المناسبة لتوزيعتك وملف SHA256SUMS
 ثم نفذ:
 
 ```bash
-sha256sum -c SHA256SUMS
+sha256sum --ignore-missing -c SHA256SUMS
 ```
 
 ### Debian وUbuntu
@@ -123,6 +123,7 @@ systemctl --user enable --now harammute
 | openSUSE `.rpm` | Tumbleweed، وفحص تثبيت وتشغيل الخدمة |
 | Arch `.pkg.tar.zst` | Arch Linux، وفحص تثبيت وتشغيل الخدمة |
 | AppImage | فُكّت الحزمة وشُغّل خادمها لفحص `/health` |
+| NixOS | بنى GitHub Actions إغلاق Nix واختبر تشغيل Tray والخادم وفحص `/health` داخل Xvfb |
 
 هذه الفحوصات تؤكد بناء الحزم وتثبيتها واستجابة الخادم لفحص الصحة. لا تعني أنها اختبرت فصل ملف صوت كاملًا أو ظهور Tray في كل جلسة رسومية. التوزيعات الأخرى المبنية على glibc قد تعمل، لكن لم نتحقق من كل إصدار أو مشتقة. لا يدعم الإصدار الحالي ARM أو Alpine/musl. كل ملفات الإصدار الحالية تستخدم CPU؛ خيارات التسريع المتاحة عند البناء من المصدر ليست حزم GPU جاهزة.
 
@@ -204,7 +205,7 @@ The current release packages target **x86_64** and use CPU inference. To downloa
 curl -fsSL https://raw.githubusercontent.com/AS-Offical/HaramMute-Linux/main/install-release.sh | bash
 ```
 
-The installer uses native packages on Debian/Ubuntu, Fedora 44, openSUSE Tumbleweed, and Arch. On NixOS it imports a Nix store closure built on GitHub Actions into the current user's profile. Other glibc-based distributions use the AppImage. It verifies SHA256 before installation and requests `sudo` only for native system packages. ARM and Alpine/musl are not supported.
+The installer uses native packages on Debian/Ubuntu, Fedora 44, openSUSE Tumbleweed, and Arch. On NixOS it imports a Nix store closure built on GitHub Actions into the current user's profile. Other glibc-based distributions use the AppImage. It verifies SHA256 before installation and requests `sudo` only for native system packages. The NixOS download is currently about 1.1 GiB because it includes the complete Nix store closure. ARM and Alpine/musl are not supported.
 
 To preview the release and package it selects without downloading or installing it:
 
@@ -215,7 +216,7 @@ curl -fsSL https://raw.githubusercontent.com/AS-Offical/HaramMute-Linux/main/ins
 To download and install a package manually, get the package and `SHA256SUMS` from the [release page](https://github.com/AS-Offical/HaramMute-Linux/releases/latest) into the same folder, then verify the files:
 
 ```bash
-sha256sum -c SHA256SUMS
+sha256sum --ignore-missing -c SHA256SUMS
 ```
 
 #### Debian and Ubuntu
@@ -232,7 +233,7 @@ sudo dnf install ./harammute-linux-1.0.18-3.fc44.x86_64.rpm
 
 #### NixOS
 
-Use the automatic installer above. It downloads the NixOS-specific package built and smoke-checked on GitHub Actions, then installs it into the current user's Nix profile. It requires `nix-store`, `nix-env`, `zstd`, `curl`, and `sha256sum`. The package uses a Nix FHS AppImage wrapper to provide GTK, PyGObject, and AppIndicator for the tray; the processing runtime and FFmpeg are bundled.
+Use the automatic installer above. It downloads the NixOS-specific package built and smoke-checked on GitHub Actions, then installs it into the current user's Nix profile. It requires `nix-store`, `nix-env`, `zstd`, `curl`, and `sha256sum`. The package uses a Nix FHS AppImage wrapper to provide GTK, PyGObject, and AppIndicator for the tray; the processing runtime and FFmpeg are bundled. The current archive is about 1.1 GiB compressed and imports a 3.99 GiB Nix store closure.
 
 For declarative NixOS configurations, the repository also provides a flake package and `nixosModules.default`; see [NixOS packaging](packaging/nixos/README.md).
 

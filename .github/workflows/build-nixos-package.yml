@@ -23,8 +23,8 @@ jobs:
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
-      - name: Resolve and lock the stable NixOS package set
-        run: nix flake lock
+      - name: Check the committed NixOS package lock
+        run: nix flake metadata --no-write-lock-file
       - name: Build HaramMute with Nix
         run: nix build --show-trace --print-build-logs .#harammute
       - name: Install headless graphical smoke-test tools
@@ -112,10 +112,3 @@ jobs:
             >> "$release_dir/SHA256SUMS"
           gh release upload "$RELEASE_TAG" "$package" "$release_dir/SHA256SUMS" \
             --clobber --repo "$REPOSITORY"
-      - name: Preserve the exact Nix lock used for this build
-        uses: actions/upload-artifact@v4
-        with:
-          name: nixos-flake-lock
-          path: flake.lock
-          if-no-files-found: error
-          retention-days: 7
