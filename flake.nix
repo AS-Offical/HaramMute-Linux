@@ -12,6 +12,7 @@
       trayGlib = pkgs.glib.override { withIntrospection = true; };
       trayPango = pkgs.pango.override { withIntrospection = true; };
       trayLibraries = pkgs.lib.makeLibraryPath [
+        pkgs.util-linux.lib
         trayGlib
         pkgs.gobject-introspection-unwrapped
         pkgs.gtk3
@@ -95,6 +96,7 @@ fi
         # The audio-processing Python runtime and FFmpeg are bundled in it.
         extraPkgs = appimagePkgs: [
           trayPython
+          pkgs.util-linux.lib
           trayPango
           appimagePkgs.gobject-introspection-unwrapped
           trayGlib
