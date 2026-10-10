@@ -9,12 +9,13 @@
       pkgs = import nixpkgs { inherit system; };
       version = "1.0.18-3";
       trayPython = pkgs.python312.withPackages (pythonPkgs: [ pythonPkgs.pygobject3 ]);
+      trayPango = pkgs.pango.override { withIntrospection = true; };
       trayTypeLibs = pkgs.lib.makeSearchPath "lib/girepository-1.0" [
         pkgs.gobject-introspection
         pkgs.glib
         pkgs.cairo
-        pkgs.pango
-        pkgs.pango.dev
+        trayPango
+        trayPango.dev
         pkgs.gdk-pixbuf
         pkgs.atk
         pkgs.gtk3
@@ -37,8 +38,8 @@
         postExtract = ''
           mkdir -p "$out/nix-girepository-1.0"
           for runtime_package in \
-            ${pkgs.gobject-introspection} ${pkgs.glib} ${pkgs.cairo} ${pkgs.pango} \
-            ${pkgs.pango.dev} ${pkgs.gdk-pixbuf} ${pkgs.atk} ${pkgs.gtk3} \
+            ${pkgs.gobject-introspection} ${pkgs.glib} ${pkgs.cairo} \
+            ${trayPango} ${trayPango.dev} ${pkgs.gdk-pixbuf} ${pkgs.atk} ${pkgs.gtk3} \
             ${pkgs.libayatana-appindicator}; do
             find "$runtime_package" -path '*/girepository-1.0/*.typelib' \
               -exec ln -sf {} "$out/nix-girepository-1.0/" \;
@@ -71,6 +72,7 @@ export GI_TYPELIB_PATH="$HERE/nix-girepository-1.0:${trayTypeLibs}"
         # The audio-processing Python runtime and FFmpeg are bundled in it.
         extraPkgs = appimagePkgs: [
           trayPython
+          trayPango
           appimagePkgs.gtk3
           appimagePkgs.libayatana-appindicator
           appimagePkgs.gobject-introspection
