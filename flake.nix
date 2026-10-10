@@ -20,7 +20,7 @@
         # The upstream AppImage uses the host Python only for its GTK tray.
         # The audio-processing Python runtime and FFmpeg are bundled in it.
         extraPkgs = appimagePkgs: [
-          (appimagePkgs.python3.withPackages (pythonPkgs: [ pythonPkgs.pygobject3 ]))
+          (appimagePkgs.python312.withPackages (pythonPkgs: [ pythonPkgs.pygobject3 ]))
           appimagePkgs.gtk3
           appimagePkgs.libayatana-appindicator
           appimagePkgs.gobject-introspection
