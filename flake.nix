@@ -37,9 +37,17 @@
         inherit version;
         src = appimage;
         postExtract = ''
+          mkdir -p "$out/nix-girepository-1.0"
           for runtime_package in ${trayPango} ${trayPango.dev} ${trayPango.devdoc}; do
             echo "GObject typelibs in $runtime_package:"
-            find "$runtime_package" -type f -name '*.typelib' -print
+            find -L "$runtime_package" -name '*.typelib' -print
+          done
+          for runtime_package in \
+            ${pkgs.gobject-introspection} ${pkgs.glib} ${pkgs.cairo} \
+            ${trayPango} ${trayPango.dev} ${trayPango.devdoc} ${pkgs.gdk-pixbuf} ${pkgs.atk} ${pkgs.gtk3} \
+            ${pkgs.libayatana-appindicator}; do
+            find -L "$runtime_package" -path '*/girepository-1.0/*.typelib' \
+              -exec ln -sf {} "$out/nix-girepository-1.0/" \;
           done
           substituteInPlace "$out/AppRun" \
             --replace-fail 'command -v python3' 'command -v ${trayPython}/bin/python3' \
@@ -52,7 +60,7 @@ export HARAMMUTE_SERVER_LD_LIBRARY_PATH="$LD_LIBRARY_PATH"
 export LD_LIBRARY_PATH="${trayLibraries}:$LD_LIBRARY_PATH"
 if [ ! -x "$PYTHON_BIN" ]' \
             --replace-fail 'export HARAMMUTE_DATA_DIR="$DATA_DIR"' 'export HARAMMUTE_DATA_DIR="$DATA_DIR"
-export GI_TYPELIB_PATH="${trayTypeLibs}"
+export GI_TYPELIB_PATH="$HERE/nix-girepository-1.0:${trayTypeLibs}"
 '
           substituteInPlace "$out/usr/lib/harammute-linux/tray_launcher.py" \
             --replace-fail 'server_env = os.environ.copy()' 'server_env = os.environ.copy()
