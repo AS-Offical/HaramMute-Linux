@@ -104,7 +104,8 @@ jobs:
           gh release download "$RELEASE_TAG" --repo "$REPOSITORY" \
             --pattern SHA256SUMS --dir "$release_dir"
           package="$RUNNER_TEMP/harammute-nixos-x86_64-nixstore.tar.zst"
-          awk '$2 != "harammute-nixos-x86_64-nixstore.tar.zst"' "$release_dir/SHA256SUMS" \
+          awk '$2 !~ /(^|\/)harammute-nixos-x86_64-nixstore\.tar\.zst$/' \
+            "$release_dir/SHA256SUMS" \
             > "$release_dir/SHA256SUMS.new"
           mv "$release_dir/SHA256SUMS.new" "$release_dir/SHA256SUMS"
           (cd "$(dirname "$package")" && sha256sum "$(basename "$package")") \
