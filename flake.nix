@@ -41,6 +41,8 @@
           for runtime_package in ${trayPango} ${trayPango.dev} ${trayPango.devdoc}; do
             echo "GObject typelibs in $runtime_package:"
             find -L "$runtime_package" -name '*.typelib' -print
+            echo "GObject introspection sources in $runtime_package:"
+            find -L "$runtime_package" -name '*.gir' -print
           done
           for runtime_package in \
             ${pkgs.gobject-introspection} ${pkgs.glib} ${pkgs.cairo} \
