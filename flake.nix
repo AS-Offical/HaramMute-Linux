@@ -14,6 +14,7 @@
         pkgs.glib
         pkgs.cairo
         pkgs.pango
+        pkgs.pango.dev
         pkgs.gdk-pixbuf
         pkgs.atk
         pkgs.gtk3
