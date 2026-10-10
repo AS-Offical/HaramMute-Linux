@@ -29,7 +29,6 @@
         src = appimage;
         postExtract = ''
           mkdir -p "$out/nix-girepository-1.0"
-          install -Dm444 ${./packaging/nixos/diagnose_gi.py} "$out/diagnose_gi.py"
           for runtime_package in ${trayGlib} ${trayGlib.dev} ${trayGlib.devdoc}; do
             echo "GLib GObject introspection files in $runtime_package:"
             find -L "$runtime_package" \( -name '*.gir' -o -name '*.typelib' \) -print
@@ -77,10 +76,7 @@ export LD_LIBRARY_PATH="${trayLibraries}:$LD_LIBRARY_PATH"
 if [ ! -x "$PYTHON_BIN" ]' \
             --replace-fail 'export HARAMMUTE_DATA_DIR="$DATA_DIR"' 'export HARAMMUTE_DATA_DIR="$DATA_DIR"
 export GI_TYPELIB_PATH="$HERE/nix-girepository-1.0"
-if [ "''${HARAMMUTE_GI_DIAGNOSTICS:-}" = 1 ]; then
-  ${trayPython}/bin/python3 "$HERE/diagnose_gi.py"
-  exit $?
-fi
+export PYTHONDONTWRITEBYTECODE=1
 '
           substituteInPlace "$out/usr/lib/harammute-linux/tray_launcher.py" \
             --replace-fail 'server_env = os.environ.copy()' 'server_env = os.environ.copy()
