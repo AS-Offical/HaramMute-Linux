@@ -10,22 +10,6 @@
       version = "1.0.18-3";
       trayPython = pkgs.python312.withPackages (pythonPkgs: [ pythonPkgs.pygobject3 ]);
       trayPango = pkgs.pango.override { withIntrospection = true; };
-      trayTypeLibs = pkgs.lib.makeSearchPath "lib/girepository-1.0" [
-        pkgs.gobject-introspection-unwrapped
-        pkgs.glib
-        pkgs.glib.dev
-        pkgs.cairo
-        pkgs.cairo.dev
-        pkgs.harfbuzz
-        pkgs.harfbuzz.dev
-        trayPango
-        trayPango.dev
-        trayPango.devdoc
-        pkgs.gdk-pixbuf
-        pkgs.atk
-        pkgs.gtk3
-        pkgs.libayatana-appindicator
-      ];
       trayLibraries = pkgs.lib.makeLibraryPath [
         pkgs.glib
         pkgs.gobject-introspection-unwrapped
@@ -50,7 +34,7 @@
           done
           for runtime_package in \
             ${pkgs.gobject-introspection-unwrapped} ${pkgs.gobject-introspection-unwrapped.dev} \
-            ${pkgs.glib} ${pkgs.glib.dev} ${pkgs.cairo} ${pkgs.cairo.dev} ${pkgs.harfbuzz} ${pkgs.harfbuzz.dev} \
+            ${pkgs.glib} ${pkgs.glib.dev} ${pkgs.glib.devdoc} ${pkgs.cairo} ${pkgs.cairo.dev} ${pkgs.harfbuzz} ${pkgs.harfbuzz.dev} \
             ${trayPango} ${trayPango.dev} ${trayPango.devdoc} ${pkgs.gdk-pixbuf} ${pkgs.atk} ${pkgs.gtk3} \
             ${pkgs.libayatana-appindicator}; do
             find -L "$runtime_package" -path '*/girepository-1.0/*.typelib' \
@@ -59,13 +43,15 @@
           gir_directories=()
           for runtime_package in \
             ${pkgs.gobject-introspection-unwrapped} ${pkgs.gobject-introspection-unwrapped.dev} \
-            ${pkgs.glib} ${pkgs.glib.dev} ${pkgs.cairo} ${pkgs.cairo.dev} ${pkgs.harfbuzz} ${pkgs.harfbuzz.dev} \
+            ${pkgs.glib} ${pkgs.glib.dev} ${pkgs.glib.devdoc} ${pkgs.cairo} ${pkgs.cairo.dev} ${pkgs.harfbuzz} ${pkgs.harfbuzz.dev} \
             ${trayPango} ${trayPango.dev} ${trayPango.devdoc} ${pkgs.gdk-pixbuf} ${pkgs.atk} ${pkgs.gtk3} \
             ${pkgs.libayatana-appindicator}; do
             while IFS= read -r gir_directory; do
               gir_directories+=(--includedir="$gir_directory")
             done < <(find -L "$runtime_package" -type d -path '*/share/gir-1.0')
           done
+          echo "Collected Nix typelibs:"
+          ls -l "$out/nix-girepository-1.0"
           for gir_file in ${trayPango.dev}/share/gir-1.0/*.gir; do
             typelib_file="$out/nix-girepository-1.0/$(basename "''${gir_file%.gir}.typelib")"
             ${pkgs.gobject-introspection-unwrapped.dev}/bin/g-ir-compiler \
@@ -82,7 +68,7 @@ export HARAMMUTE_SERVER_LD_LIBRARY_PATH="$LD_LIBRARY_PATH"
 export LD_LIBRARY_PATH="${trayLibraries}:$LD_LIBRARY_PATH"
 if [ ! -x "$PYTHON_BIN" ]' \
             --replace-fail 'export HARAMMUTE_DATA_DIR="$DATA_DIR"' 'export HARAMMUTE_DATA_DIR="$DATA_DIR"
-export GI_TYPELIB_PATH="$HERE/nix-girepository-1.0:${trayTypeLibs}"
+export GI_TYPELIB_PATH="$HERE/nix-girepository-1.0"
 '
           substituteInPlace "$out/usr/lib/harammute-linux/tray_launcher.py" \
             --replace-fail 'server_env = os.environ.copy()' 'server_env = os.environ.copy()
