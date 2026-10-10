@@ -26,6 +26,7 @@
             --replace-fail 'command -v python3' 'command -v ${trayPython}/bin/python3' \
             --replace-fail 'python3 -c' '${trayPython}/bin/python3 -c' \
             --replace-fail 'PYTHONPATH python3 ' 'PYTHONPATH ${trayPython}/bin/python3 ' \
+            --replace-fail "' >/dev/null 2>&1; then" "' >&2; then" \
             --replace-fail 'export HARAMMUTE_DATA_DIR="$DATA_DIR"' 'export HARAMMUTE_DATA_DIR="$DATA_DIR"
 export GI_TYPELIB_PATH="${trayTypeLibs}"
 export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [ pkgs.gtk3 pkgs.libayatana-appindicator ]}:''${LD_LIBRARY_PATH:-}"'
