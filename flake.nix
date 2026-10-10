@@ -10,6 +10,18 @@
       version = "1.0.18-3";
       trayPython = pkgs.python312.withPackages (pythonPkgs: [ pythonPkgs.pygobject3 ]);
       trayPango = pkgs.pango.override { withIntrospection = true; };
+      trayTypeLibs = pkgs.lib.makeSearchPath "lib/girepository-1.0" [
+        pkgs.gobject-introspection
+        pkgs.glib
+        pkgs.cairo
+        trayPango
+        trayPango.dev
+        trayPango.devdoc
+        pkgs.gdk-pixbuf
+        pkgs.atk
+        pkgs.gtk3
+        pkgs.libayatana-appindicator
+      ];
       trayLibraries = pkgs.lib.makeLibraryPath [
         pkgs.glib
         pkgs.gobject-introspection
@@ -25,6 +37,10 @@
         inherit version;
         src = appimage;
         postExtract = ''
+          for runtime_package in ${trayPango} ${trayPango.dev} ${trayPango.devdoc}; do
+            echo "GObject typelibs in $runtime_package:"
+            find "$runtime_package" -type f -name '*.typelib' -print
+          done
           substituteInPlace "$out/AppRun" \
             --replace-fail 'command -v python3' 'command -v ${trayPython}/bin/python3' \
             --replace-fail 'python3 -c' '${trayPython}/bin/python3 -c' \
@@ -36,7 +52,7 @@ export HARAMMUTE_SERVER_LD_LIBRARY_PATH="$LD_LIBRARY_PATH"
 export LD_LIBRARY_PATH="${trayLibraries}:$LD_LIBRARY_PATH"
 if [ ! -x "$PYTHON_BIN" ]' \
             --replace-fail 'export HARAMMUTE_DATA_DIR="$DATA_DIR"' 'export HARAMMUTE_DATA_DIR="$DATA_DIR"
-unset GI_TYPELIB_PATH
+export GI_TYPELIB_PATH="${trayTypeLibs}"
 '
           substituteInPlace "$out/usr/lib/harammute-linux/tray_launcher.py" \
             --replace-fail 'server_env = os.environ.copy()' 'server_env = os.environ.copy()
