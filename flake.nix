@@ -13,7 +13,12 @@
         pkgs.gtk3
         pkgs.libayatana-appindicator
       ];
-      trayLibraries = pkgs.lib.makeLibraryPath [ pkgs.gtk3 pkgs.libayatana-appindicator ];
+      trayLibraries = pkgs.lib.makeLibraryPath [
+        pkgs.glib
+        pkgs.gobject-introspection
+        pkgs.gtk3
+        pkgs.libayatana-appindicator
+      ];
       appimage = pkgs.fetchurl {
         url = "https://github.com/AS-Offical/HaramMute-Linux/releases/download/v${version}/HaramMute-1.0.18-x86_64.AppImage";
         hash = "sha256-PUmTV7G8voj/3p7zFMRUVk7donZhiLYnM5An/EEBpTU=";
