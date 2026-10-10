@@ -51,6 +51,20 @@
             find -L "$runtime_package" -path '*/girepository-1.0/*.typelib' \
               -exec ln -sf {} "$out/nix-girepository-1.0/" \;
           done
+          gir_directories=()
+          for runtime_package in \
+            ${pkgs.gobject-introspection} ${pkgs.glib} ${pkgs.cairo} \
+            ${trayPango} ${trayPango.dev} ${trayPango.devdoc} ${pkgs.gdk-pixbuf} ${pkgs.atk} ${pkgs.gtk3} \
+            ${pkgs.libayatana-appindicator}; do
+            while IFS= read -r gir_directory; do
+              gir_directories+=(--includedir="$gir_directory")
+            done < <(find -L "$runtime_package" -type d -path '*/share/gir-1.0')
+          done
+          for gir_file in ${trayPango.dev}/share/gir-1.0/*.gir; do
+            typelib_file="$out/nix-girepository-1.0/$(basename "''${gir_file%.gir}.typelib")"
+            ${pkgs.gobject-introspection}/bin/g-ir-compiler \
+              "''${gir_directories[@]}" "$gir_file" --output "$typelib_file"
+          done
           substituteInPlace "$out/AppRun" \
             --replace-fail 'command -v python3' 'command -v ${trayPython}/bin/python3' \
             --replace-fail 'python3 -c' '${trayPython}/bin/python3 -c' \
