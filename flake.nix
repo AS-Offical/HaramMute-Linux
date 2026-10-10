@@ -62,7 +62,7 @@
           done
           for gir_file in ${trayPango.dev}/share/gir-1.0/*.gir; do
             typelib_file="$out/nix-girepository-1.0/$(basename "''${gir_file%.gir}.typelib")"
-            ${pkgs.gobject-introspection-unwrapped}/bin/g-ir-compiler \
+            ${pkgs.gobject-introspection-unwrapped.dev}/bin/g-ir-compiler \
               "''${gir_directories[@]}" "$gir_file" --output "$typelib_file"
           done
           substituteInPlace "$out/AppRun" \
