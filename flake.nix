@@ -9,10 +9,11 @@
       pkgs = import nixpkgs { inherit system; };
       version = "1.0.18-3";
       trayPython = pkgs.python312.withPackages (pythonPkgs: [ pythonPkgs.pygobject3 ]);
+      trayUtilLinux = pkgs.util-linux.override { systemdSupport = false; };
       trayGlib = pkgs.glib.override { withIntrospection = true; };
       trayPango = pkgs.pango.override { withIntrospection = true; };
       trayLibraries = pkgs.lib.makeLibraryPath [
-        pkgs.util-linux.lib
+        trayUtilLinux.lib
         trayGlib
         pkgs.gobject-introspection-unwrapped
         pkgs.gtk3
@@ -96,7 +97,7 @@ fi
         # The audio-processing Python runtime and FFmpeg are bundled in it.
         extraPkgs = appimagePkgs: [
           trayPython
-          pkgs.util-linux.lib
+          trayUtilLinux.lib
           trayPango
           appimagePkgs.gobject-introspection-unwrapped
           trayGlib
