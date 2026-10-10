@@ -16,6 +16,8 @@
         pkgs.glib.dev
         pkgs.cairo
         pkgs.cairo.dev
+        pkgs.harfbuzz
+        pkgs.harfbuzz.dev
         trayPango
         trayPango.dev
         trayPango.devdoc
@@ -48,7 +50,7 @@
           done
           for runtime_package in \
             ${pkgs.gobject-introspection-unwrapped} ${pkgs.gobject-introspection-unwrapped.dev} \
-            ${pkgs.glib} ${pkgs.glib.dev} ${pkgs.cairo} ${pkgs.cairo.dev} \
+            ${pkgs.glib} ${pkgs.glib.dev} ${pkgs.cairo} ${pkgs.cairo.dev} ${pkgs.harfbuzz} ${pkgs.harfbuzz.dev} \
             ${trayPango} ${trayPango.dev} ${trayPango.devdoc} ${pkgs.gdk-pixbuf} ${pkgs.atk} ${pkgs.gtk3} \
             ${pkgs.libayatana-appindicator}; do
             find -L "$runtime_package" -path '*/girepository-1.0/*.typelib' \
@@ -57,7 +59,7 @@
           gir_directories=()
           for runtime_package in \
             ${pkgs.gobject-introspection-unwrapped} ${pkgs.gobject-introspection-unwrapped.dev} \
-            ${pkgs.glib} ${pkgs.glib.dev} ${pkgs.cairo} ${pkgs.cairo.dev} \
+            ${pkgs.glib} ${pkgs.glib.dev} ${pkgs.cairo} ${pkgs.cairo.dev} ${pkgs.harfbuzz} ${pkgs.harfbuzz.dev} \
             ${trayPango} ${trayPango.dev} ${trayPango.devdoc} ${pkgs.gdk-pixbuf} ${pkgs.atk} ${pkgs.gtk3} \
             ${pkgs.libayatana-appindicator}; do
             while IFS= read -r gir_directory; do
