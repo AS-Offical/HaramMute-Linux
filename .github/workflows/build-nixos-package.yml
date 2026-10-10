@@ -81,8 +81,6 @@ jobs:
             echo "Could not locate the extracted AppImage in the Nix closure." >&2
             exit 1
           fi
-          find "$extracted_path" -type d -name __pycache__ -prune -exec rm -rf {} +
-          find "$extracted_path" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
           nix-store --verify-path "$extracted_path"
           nix-store --export "${closure[@]}" | zstd -T0 -6 -o "$RUNNER_TEMP/nixos-package/harammute.store.zst"
           tar --zstd -cf "$RUNNER_TEMP/harammute-nixos-x86_64-nixstore.tar.zst" \
