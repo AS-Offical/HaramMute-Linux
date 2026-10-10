@@ -10,18 +10,6 @@
       version = "1.0.18-3";
       trayPython = pkgs.python312.withPackages (pythonPkgs: [ pythonPkgs.pygobject3 ]);
       trayPango = pkgs.pango.override { withIntrospection = true; };
-      trayTypeLibs = pkgs.lib.makeSearchPath "lib/girepository-1.0" [
-        pkgs.gobject-introspection
-        pkgs.glib
-        pkgs.cairo
-        trayPango
-        trayPango.dev
-        trayPango.devdoc
-        pkgs.gdk-pixbuf
-        pkgs.atk
-        pkgs.gtk3
-        pkgs.libayatana-appindicator
-      ];
       trayLibraries = pkgs.lib.makeLibraryPath [
         pkgs.glib
         pkgs.gobject-introspection
@@ -37,14 +25,6 @@
         inherit version;
         src = appimage;
         postExtract = ''
-          mkdir -p "$out/nix-girepository-1.0"
-          for runtime_package in \
-            ${pkgs.gobject-introspection} ${pkgs.glib} ${pkgs.cairo} \
-            ${trayPango} ${trayPango.dev} ${trayPango.devdoc} ${pkgs.gdk-pixbuf} ${pkgs.atk} ${pkgs.gtk3} \
-            ${pkgs.libayatana-appindicator}; do
-            find "$runtime_package" -path '*/girepository-1.0/*.typelib' \
-              -exec ln -sf {} "$out/nix-girepository-1.0/" \;
-          done
           substituteInPlace "$out/AppRun" \
             --replace-fail 'command -v python3' 'command -v ${trayPython}/bin/python3' \
             --replace-fail 'python3 -c' '${trayPython}/bin/python3 -c' \
@@ -56,7 +36,7 @@ export HARAMMUTE_SERVER_LD_LIBRARY_PATH="$LD_LIBRARY_PATH"
 export LD_LIBRARY_PATH="${trayLibraries}:$LD_LIBRARY_PATH"
 if [ ! -x "$PYTHON_BIN" ]' \
             --replace-fail 'export HARAMMUTE_DATA_DIR="$DATA_DIR"' 'export HARAMMUTE_DATA_DIR="$DATA_DIR"
-export GI_TYPELIB_PATH="$HERE/nix-girepository-1.0:${trayTypeLibs}"
+unset GI_TYPELIB_PATH
 '
           substituteInPlace "$out/usr/lib/harammute-linux/tray_launcher.py" \
             --replace-fail 'server_env = os.environ.copy()' 'server_env = os.environ.copy()
@@ -74,6 +54,11 @@ export GI_TYPELIB_PATH="$HERE/nix-girepository-1.0:${trayTypeLibs}"
         extraPkgs = appimagePkgs: [
           trayPython
           trayPango
+          appimagePkgs.gobject-introspection
+          appimagePkgs.glib
+          appimagePkgs.cairo
+          appimagePkgs.gdk-pixbuf
+          appimagePkgs.atk
           appimagePkgs.gtk3
           appimagePkgs.libayatana-appindicator
           appimagePkgs.gobject-introspection
