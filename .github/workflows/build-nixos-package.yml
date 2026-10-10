@@ -101,7 +101,8 @@ jobs:
           awk '$2 != "harammute-nixos-x86_64-nixstore.tar.zst"' "$release_dir/SHA256SUMS" \
             > "$release_dir/SHA256SUMS.new"
           mv "$release_dir/SHA256SUMS.new" "$release_dir/SHA256SUMS"
-          sha256sum "$package" >> "$release_dir/SHA256SUMS"
+          (cd "$(dirname "$package")" && sha256sum "$(basename "$package")") \
+            >> "$release_dir/SHA256SUMS"
           gh release upload "$RELEASE_TAG" "$package" "$release_dir/SHA256SUMS" \
             --clobber --repo "$REPOSITORY"
       - name: Preserve the exact Nix lock used for this build
