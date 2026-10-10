@@ -48,19 +48,23 @@ jobs:
                 2>/dev/null \
                 && python3 -c '\''import json,sys; d=json.load(open(sys.argv[1])); assert d.get("status")=="ok" and d.get("service")=="harammute"'\'' \
                   "$HARAMMUTE_DATA_DIR/health.json" 2>/dev/null; then
-                grep -q "HaramMute tray active" "$HARAMMUTE_DATA_DIR/tray.log"
-                exit 0
+                if grep -q "HaramMute tray active" "$HARAMMUTE_DATA_DIR/tray.log"; then
+                  exit 0
+                fi
+                echo "Health endpoint is ready, but the tray did not report active." >&2
+                cat "$HARAMMUTE_DATA_DIR/tray.log" >&2
+                exit 1
               fi
               if ! kill -0 "$app_pid" 2>/dev/null; then
                 wait "$app_pid" || true
-                echo "HaramMute exited before its health endpoint became ready."
-                cat "$HARAMMUTE_DATA_DIR/tray.log"
+                echo "HaramMute exited before its health endpoint became ready." >&2
+                cat "$HARAMMUTE_DATA_DIR/tray.log" >&2
                 exit 1
               fi
               sleep 0.5
             done
-            echo "Timed out waiting for the HaramMute health endpoint."
-            cat "$HARAMMUTE_DATA_DIR/tray.log"
+            echo "Timed out waiting for the HaramMute health endpoint." >&2
+            cat "$HARAMMUTE_DATA_DIR/tray.log" >&2
             exit 1
           '
       - name: Build a portable Nix store closure archive
