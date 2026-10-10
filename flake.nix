@@ -17,10 +17,22 @@
         url = "https://github.com/AS-Offical/HaramMute-Linux/releases/download/v${version}/HaramMute-1.0.18-x86_64.AppImage";
         hash = "sha256-PUmTV7G8voj/3p7zFMRUVk7donZhiLYnM5An/EEBpTU=";
       };
-      harammute = pkgs.appimageTools.wrapType2 {
+      extractedAppimage = pkgs.appimageTools.extractType2 {
         pname = "harammute";
         inherit version;
         src = appimage;
+        postExtract = ''
+          substituteInPlace "$out/AppRun" \
+            --replace-fail 'python3' '${trayPython}/bin/python3' \
+            --replace-fail 'export HARAMMUTE_DATA_DIR="$DATA_DIR"' 'export HARAMMUTE_DATA_DIR="$DATA_DIR"
+export GI_TYPELIB_PATH="${trayTypeLibs}"
+export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [ pkgs.gtk3 pkgs.libayatana-appindicator ]}:''${LD_LIBRARY_PATH:-}"'
+        '';
+      };
+      harammute = pkgs.appimageTools.wrapAppImage {
+        pname = "harammute";
+        inherit version;
+        src = extractedAppimage;
 
         # The upstream AppImage uses the host Python only for its GTK tray.
         # The audio-processing Python runtime and FFmpeg are bundled in it.
@@ -32,11 +44,6 @@
           appimagePkgs.curl
           appimagePkgs.xdg-utils
         ];
-
-        profile = ''
-          export PATH="${trayPython}/bin:$PATH"
-          export GI_TYPELIB_PATH="${trayTypeLibs}''${GI_TYPELIB_PATH:+:$GI_TYPELIB_PATH}"
-        '';
 
         extraInstallCommands = ''
           install -Dm444 ${./icon.png} \
