@@ -1,8 +1,9 @@
 import gi
 
+gi.require_version("GIRepository", "3.0")
 from gi.repository import GIRepository, GObject
 
-repository = GIRepository.Repository.get_default()
+repository = GIRepository.Repository.dup_default()
 print("GI search path:", repository.get_search_path(), flush=True)
 repository.require("Gio", "2.0", 0)
 info = repository.find_by_name("Gio", "ActionMap")
