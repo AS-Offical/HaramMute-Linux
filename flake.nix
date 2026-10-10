@@ -16,6 +16,7 @@
         pkgs.cairo
         trayPango
         trayPango.dev
+        trayPango.devdoc
         pkgs.gdk-pixbuf
         pkgs.atk
         pkgs.gtk3
@@ -39,7 +40,7 @@
           mkdir -p "$out/nix-girepository-1.0"
           for runtime_package in \
             ${pkgs.gobject-introspection} ${pkgs.glib} ${pkgs.cairo} \
-            ${trayPango} ${trayPango.dev} ${pkgs.gdk-pixbuf} ${pkgs.atk} ${pkgs.gtk3} \
+            ${trayPango} ${trayPango.dev} ${trayPango.devdoc} ${pkgs.gdk-pixbuf} ${pkgs.atk} ${pkgs.gtk3} \
             ${pkgs.libayatana-appindicator}; do
             find "$runtime_package" -path '*/girepository-1.0/*.typelib' \
               -exec ln -sf {} "$out/nix-girepository-1.0/" \;
