@@ -24,6 +24,7 @@
         postExtract = ''
           substituteInPlace "$out/AppRun" \
             --replace-fail 'python3' '${trayPython}/bin/python3' \
+            --replace-fail 'python-runtime/bin${trayPython}/bin/python3.12' 'python-runtime/bin/python3.12' \
             --replace-fail 'export HARAMMUTE_DATA_DIR="$DATA_DIR"' 'export HARAMMUTE_DATA_DIR="$DATA_DIR"
 export GI_TYPELIB_PATH="${trayTypeLibs}"
 export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [ pkgs.gtk3 pkgs.libayatana-appindicator ]}:''${LD_LIBRARY_PATH:-}"'
