@@ -27,9 +27,9 @@
 
 ## التثبيت السريع
 
-حزم الإصدار الحالية تستهدف Linux بمعمارية **x86_64** وتستخدم CPU للمعالجة. نزّل ملف الحزمة و`SHA256SUMS` من [الإصدار](https://github.com/AS-Offical/HaramMute-Linux/releases/tag/v1.0.18-3) إلى مجلد واحد، ثم تحقق من سلامة الملفات:
+حزم الإصدار الحالية تستهدف Linux بمعمارية **x86_64** وتستخدم CPU للمعالجة. يختار المثبّت التالي أحدث إصدار وحزمة التوزيعة المناسبة ويتحقق من SHA256 قبل التثبيت:
 
-لتنزيل أحدث إصدار واختيار الحزمة حسب التوزيعة وتثبيتها تلقائيًا، استخدم:
+للتثبيت تلقائيًا، استخدم:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/AS-Offical/HaramMute-Linux/main/install-release.sh | bash
@@ -53,11 +53,7 @@ curl -fsSL https://raw.githubusercontent.com/AS-Offical/HaramMute-Linux/main/ins
 curl -fsSL https://raw.githubusercontent.com/AS-Offical/HaramMute-Linux/main/install-release.sh | bash -s -- --dry-run
 ```
 
-ولتنزيل الحزمة يدويًا، اتبع الخطوات التالية:
-
-اذهب لصفحة الـ[Releases](https://github.com/AS-Offical/HaramMute-Linux/releases)
-حمل النسخة المناسبة لتوزيعتك وملف SHA256SUMS
-ثم نفذ:
+للتثبيت يدويًا، نزّل الحزمة المناسبة وملف `SHA256SUMS` من [صفحة الإصدارات](https://github.com/AS-Offical/HaramMute-Linux/releases/latest) إلى المجلد نفسه، ثم تحقق من الملف الذي نزّلته:
 
 ```bash
 sha256sum --ignore-missing -c SHA256SUMS
@@ -199,7 +195,7 @@ HaramMute Linux is an independent local server for the HaramMute browser extensi
 
 ### Quick install
 
-The current release packages target **x86_64** and use CPU inference. To download the latest release, select the package for your distribution, verify its SHA256, and install it automatically, run:
+The current release packages target **x86_64** and use CPU inference. The installer selects the latest release and the package for your distribution, then verifies its SHA256 before installation. To install automatically, run:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/AS-Offical/HaramMute-Linux/main/install-release.sh | bash
@@ -213,7 +209,7 @@ To preview the release and package it selects without downloading or installing 
 curl -fsSL https://raw.githubusercontent.com/AS-Offical/HaramMute-Linux/main/install-release.sh | bash -s -- --dry-run
 ```
 
-To download and install a package manually, get the package and `SHA256SUMS` from the [release page](https://github.com/AS-Offical/HaramMute-Linux/releases/latest) into the same folder, then verify the files:
+To install manually, download your package and `SHA256SUMS` from the [release page](https://github.com/AS-Offical/HaramMute-Linux/releases/latest) into the same folder, then verify the downloaded package:
 
 ```bash
 sha256sum --ignore-missing -c SHA256SUMS
@@ -285,6 +281,7 @@ The first separation downloads the ONNX model and requires internet access and a
 | openSUSE `.rpm` | Tumbleweed; installation and service startup checked |
 | Arch `.pkg.tar.zst` | Arch Linux; installation and service startup checked |
 | AppImage | Extracted and its server `/health` endpoint checked |
+| NixOS | Nix closure built on GitHub Actions; tray startup and `/health` checked under Xvfb |
 
 These checks confirm package installation and server health. They do not test a complete audio-separation job or tray visibility in every graphical session. Other glibc-based distributions may work, but have not all been verified. This release does not support ARM or Alpine/musl. All published packages use CPU; GPU options available when building from source are not included in the release packages.
 
@@ -333,7 +330,7 @@ CPU is the default and most compatible option. GPU options depend on compatible 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and contribution guidelines. Package files live in `packaging/`; keep their paths intact because the build scripts depend on them. The local `dist/` directory is ignored by Git and is not the source of public release downloads.
 
 - `app/`: API, jobs, and audio processing.
-- `packaging/`: Debian, RPM, Arch, and AppImage build files.
+- `packaging/`: Debian, RPM, Arch, AppImage, and NixOS package files.
 - `assets/`: images and model metadata; the large model is downloaded when needed and is not stored in Git.
 - `install.sh`, `install-release.sh`, `harammute*`, and `tray_launcher.py`: source and release installers, launchers, and service integration.
 - `.github/workflows/`: CI checks and release package builds.
