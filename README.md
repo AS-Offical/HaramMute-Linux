@@ -76,7 +76,7 @@ sudo dnf install ./harammute-linux-1.0.18-3.fc44.x86_64.rpm
 ملف RPM غير موقع. بعد التحقق من SHA256، استخدم:
 
 ```bash
-sudo zypper --no-gpg-checks install ./harammute-linux-1.0.18-3.x86_64.rpm
+sudo zypper install --allow-unsigned-rpm ./harammute-linux-1.0.18-3.x86_64.rpm
 ```
 
 ### Arch Linux
@@ -238,7 +238,7 @@ For declarative NixOS configurations, the repository also provides a flake packa
 The RPM is unsigned. Verify its SHA256, then install it with:
 
 ```bash
-sudo zypper --no-gpg-checks install ./harammute-linux-1.0.18-3.x86_64.rpm
+sudo zypper install --allow-unsigned-rpm ./harammute-linux-1.0.18-3.x86_64.rpm
 ```
 
 #### Arch Linux

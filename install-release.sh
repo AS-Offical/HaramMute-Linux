@@ -169,7 +169,7 @@ case "$ASSET_NAME" in
         if [[ "$PACKAGE_KIND" == "opensuse" ]]; then
             command -v zypper >/dev/null 2>&1 || { echo "zypper is required for this RPM package." >&2; exit 1; }
             echo "Note: the openSUSE RPM is unsigned; SHA256 was checked against the release checksum file."
-            run_privileged zypper --no-gpg-checks --non-interactive install "$TEMP_DIR/$ASSET_NAME"
+            run_privileged zypper --non-interactive install --allow-unsigned-rpm "$TEMP_DIR/$ASSET_NAME"
         else
             command -v dnf >/dev/null 2>&1 || { echo "dnf is required for this Fedora package." >&2; exit 1; }
             run_privileged dnf install -y "$TEMP_DIR/$ASSET_NAME"
