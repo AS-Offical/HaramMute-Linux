@@ -87,7 +87,7 @@ sudo pacman -U ./harammute-linux-1.0.18-3-x86_64.pkg.tar.zst
 
 ### AppImage
 
-يتطلب AppImage نظامًا مبنيًا على glibc، ومكتبات GTK3 وPyGObject وAppIndicator/SNI من النظام. لا يدعم هذا الإصدار ARM أو Alpine/musl.
+يتطلب AppImage نظامًا مبنيًا على glibc، ومكتبات GTK3 وPyGObject وAppIndicator/SNI من النظام. إذا لم يكن FUSE متوفرًا، شغّله بهذا الأمر: `APPIMAGE_EXTRACT_AND_RUN=1 ./HaramMute-1.0.18-x86_64.AppImage`. لا يدعم هذا الإصدار ARM أو Alpine/musl.
 
 ```bash
 chmod +x ./HaramMute-1.0.18-x86_64.AppImage
@@ -249,7 +249,7 @@ sudo pacman -U ./harammute-linux-1.0.18-3-x86_64.pkg.tar.zst
 
 #### AppImage
 
-The AppImage requires a glibc-based system and host GTK3, PyGObject, and AppIndicator/SNI support. ARM and Alpine/musl are not supported by this release.
+The AppImage requires a glibc-based system and host GTK3, PyGObject, and AppIndicator/SNI support. If FUSE is unavailable, run it with `APPIMAGE_EXTRACT_AND_RUN=1 ./HaramMute-1.0.18-x86_64.AppImage`. ARM and Alpine/musl are not supported by this release.
 
 ```bash
 chmod +x ./HaramMute-1.0.18-x86_64.AppImage

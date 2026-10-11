@@ -46,7 +46,7 @@ The download is about **1.1 GiB**. After installation, its files use about **3.9
 The flake builds the package from the checked AppImage. It uses Nixpkgs 26.05 at the revision saved in `flake.lock`:
 
 ```bash
-nix build .#harammute
+nix --extra-experimental-features 'nix-command flakes' build .#harammute
 ```
 
 To add HaramMute to your NixOS configuration, add this repository as a flake input and include its module:
