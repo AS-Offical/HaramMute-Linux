@@ -135,6 +135,12 @@ cd HaramMute-Linux
 
 المثبّت يجهز المتطلبات تلقائيًا على Debian وUbuntu وFedora وArch ومشتقاته وopenSUSE وGentoo. على التوزيعات الأخرى، ثبّت `ffmpeg` و`ffprobe` و`curl` وGTK3 وPyGObject وAppIndicator/SNI أولًا، ثم شغّل المثبّت مع `HARAMMUTE_SKIP_SYSTEM_DEPS=1`. يلزم Linux مبني على glibc؛ Alpine غير مدعوم حاليًا.
 
+بعد تثبيت المتطلبات يدويًا، شغّل:
+
+```bash
+HARAMMUTE_SKIP_SYSTEM_DEPS=1 ./install.sh --acceleration cpu
+```
+
 ### اختيار مسار المعالجة عند التثبيت من المصدر
 
 استخدام CPU هو الخيار الافتراضي. خيارات GPU تحتاج جهازًا وتعريفات ومكتبات مناسبة، ولا تتوفر في باكيدجات الإصدار الجاهزة:
@@ -296,6 +302,12 @@ cd HaramMute-Linux
 ```
 
 The installer has automatic dependency recipes for Debian/Ubuntu, Fedora, Arch and its derivatives, openSUSE, and Gentoo. On other distributions, install `ffmpeg`, `ffprobe`, `curl`, GTK3, PyGObject, and AppIndicator/SNI, then run with `HARAMMUTE_SKIP_SYSTEM_DEPS=1`. A glibc-based system is required; Alpine is currently unsupported because of the PyTorch and ONNX Runtime dependencies.
+
+After installing those system dependencies, run:
+
+```bash
+HARAMMUTE_SKIP_SYSTEM_DEPS=1 ./install.sh --acceleration cpu
+```
 
 #### Select a processing provider when installing from source
 
